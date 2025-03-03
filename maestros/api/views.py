@@ -20,11 +20,15 @@ class MaestroCrearVista(APIView):
                 if campo not in campos:
                     return Response({"error": f"El campo '{campo}' es requerido."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Si todos los campos requeridos están presentes, devolver éxito
-            print(campos)  # Mostrar los datos recibidos (puedes eliminar esta línea si no la necesitas)
+            # Comprobar si ya existe un maestro con el mismo correo (utilizando 'email' en lugar de 'correo')
+            if Maestro.objects.filter(email=campos["correo"]).exists():
+                return Response({"error": "Ya existe un maestro con ese correo electrónico."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Si todos los campos requeridos están presentes y no hay duplicados, registrar el maestro
             registrarMaestro.crearUsuario(campos, request)
+
             return Response({"Exito": "Los datos fueron procesados correctamente."}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             print(e)
-            return Response({"error": "An error occurred, data cannot be processed. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "Ocurrió un error, los datos no pueden ser procesados. Inténtelo nuevamente."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
