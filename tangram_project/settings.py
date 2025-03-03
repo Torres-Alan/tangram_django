@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'maestros',
     'rest_framework',
     'salones',
+    'equipos',
 ]
 
 MIDDLEWARE = [

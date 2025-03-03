@@ -1,1 +1,7 @@
-__pycache__/
+# Ignorar todas las carpetas __pycache__ en el proyecto
+**/__pycache__/
+
+# Ignorar archivos de caché de Python
+*.pyc
+*.pyo
+*.pyd
