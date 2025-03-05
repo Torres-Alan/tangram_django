@@ -1,23 +1,37 @@
+# equipos/services.py
+from equipos.models import Equipos
+from salones.models import Salon
+from estudiantes.models import Estudiante
+from django.core.exceptions import ValidationError
+from maestros.models import Maestro
 
+class CrearEquipo:
 
-from equipos.repository import equipoRepository
-from maestros.repositoy import maestroRepository
+    @staticmethod
+    def registrar_equipo(data):
+        """
+        Crea un equipo, asigna un maestro y estudiantes del salón.
+        """
+        # Obtener el nombre del equipo y el ID del maestro
+        nombre_equipo = data.get('nombre')
+        salon_id = data.get('salon_id')  # ID del salón donde se creará el equipo
+        maestros_id = data.get('maestro')
 
+        if not nombre_equipo or not salon_id:
+            raise ValidationError("El nombre del equipo y el ID del salón son obligatorios.")
 
-class crearEquipo:
-    def registrarEquipo(request, data):
+        # Obtener el salón correspondiente
         try:
-            # Verificar si 'nombre' está en data
-            nombreEquipo = data.get('nombre')
-            maestroRepo=maestroRepository()
-            maestro= maestroRepo.obtener_maestro_por_id(data.get('id_maestro'))
-            if not nombreEquipo and not maestro:
-                return {"error": "El nombre del equipo es obligatorio."}, 400  # Código HTTP 400 (Bad Request)
+            salon = Salon.objects.get(id=salon_id)
+        except Salon.DoesNotExist:
+            raise ValidationError(f"El salón con ID {salon_id} no existe.")
 
-            # Crear el repositorio e intentar registrar el equipo
-            repository = equipoRepository()
-            response=repository.crear_equipo(nombreEquipo,maestro)
-            print(response)
-            return {"mensaje": f"Equipo '{response}' creado exitosamente."}, 201  # Código HTTP 201 (Created)
-        except Exception as e:
-            return {"error": f"Ocurrió un error inesperado: {str(e)}"}, 500  # Código HTTP 500 (Internal Server Error)
+        # Crear el equipo
+        equipo = Equipos.objects.create(
+            nombre=nombre_equipo,
+            created_by=Maestro.objects.get(id=maestros_id),  # El maestro que está creando el equipo (viene en la data)
+            salon=salon  # Asociamos el equipo al salón
+        )
+
+
+        return equipo

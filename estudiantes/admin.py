@@ -4,7 +4,7 @@ from .models import Estudiante
 
 @admin.register(Estudiante)
 class EstudianteAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre', 'apellidos', 'nickname')  # Mostrar solo los campos relevantes
+    list_display = ('id', 'nombre', 'apellidos', 'nickname', 'salon')  # Agregar el campo 'salon'
     search_fields = ('nombre', 'apellidos', 'nickname')  # Hacer los campos buscables
-    list_filter = ('nickname',)  # Filtrar por nickname
+    list_filter = ('nickname', 'salon')  # Filtrar por nickname y salon
     ordering = ('nombre',)  # Ordenar por nombre de manera predeterminada
