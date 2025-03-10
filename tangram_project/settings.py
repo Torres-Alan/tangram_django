@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-jk#-v47@^86ww&p3aw97u#x%cy3h3b4x#nq!$ko4fgi26)f#hp
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+#HOST DE NGROK:
+#ALLOWED_HOSTS = ['3583-2806-10b7-3-135a-291f-ff9f-106e-c5d5.ngrok-free.app']
 
 
 # Application definition
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     'salones',
     'estudiantes',
     'equipos',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -52,7 +54,32 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
+
+CORS_ORIGIN_WHITELIST = [
+    'http://localhost:3000',  # Agrega aquí la URL de tu frontend
+    'http://127.0.0.1:3000',  # Si estás trabajando en localhost
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
+
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'Authorization',
+    'x-csrftoken',
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'tangram_project.urls'
 
