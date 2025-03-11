@@ -32,6 +32,7 @@ DEBUG = True
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,7 +45,18 @@ INSTALLED_APPS = [
     'estudiantes',
     'equipos',
     'corsheaders',
+    'channels',
+    'sesion_juego',
 ]
+
+#Webscokets con Django Channels:
+ASGI_APPLICATION = "tangram_project.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",  # Solo para desarrollo
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
