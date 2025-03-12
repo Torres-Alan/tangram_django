@@ -7,6 +7,7 @@ from estudiantes.models import Estudiante
 from estudiantes.services import EstudianteService
 from estudiantes.api.serializers import EstudianteSerializer
 from django.core.exceptions import ValidationError
+from django.contrib.auth import login, logout
 
 class EstudianteCrearVista(APIView):
     def post(self, request):
@@ -53,3 +54,47 @@ class EstudianteAsignarEquipo(APIView):
             return Response({"error": "Uno o más estudiantes no existen."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class EstudianteAutentificarLogin(APIView):
+    def post(self, request):
+        try:
+            # Obtener el nickname del request
+            data = request.data
+            nickname = data.get('nickname')
+
+            # Verificar si el nickname existe en la base de datos
+            estudiante = Estudiante.objects.filter(nickname=nickname).first()
+
+            if not estudiante:
+                # Si no existe el nickname, retornamos un error
+                return Response({"error": "El nickname no está registrado."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Si el nickname existe, se asigna el equipo al estudiante
+            equipo = Equipos.objects.filter(salon=estudiante.salon).first()  # Buscar el equipo relacionado con el salón
+
+            if equipo:
+                estudiante.equipo = equipo
+                estudiante.save()
+
+            # Iniciar sesión con el estudiante (estudiante ya es el usuario)
+            login(request, estudiante)  # Inicia la sesión del estudiante (estudiante ya es el usuario)
+
+            return Response({
+                "Exito": "Inicio de sesión exitoso.",
+                "equipo": equipo.nombre if equipo else "Sin equipo asignado"
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class EstudianteCerrarSesion(APIView):
+    def post(self, request):
+        try:
+            # Realiza el cierre de sesión
+            logout(request)
+            return Response({"Exito": "Sesión cerrada correctamente."}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Error al cerrar la sesión: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
