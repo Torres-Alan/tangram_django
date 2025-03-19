@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-jk#-v47@^86ww&p3aw97u#x%cy3h3b4x#nq!$ko4fgi26)f#hp
 DEBUG = True
 
 #HOST DE NGROK:
-#ALLOWED_HOSTS = ['372a-2806-10b7-3-4adc-81df-b7de-1fd0-f948.ngrok-free.app', 'localhost','127.0.0.1',]
+ALLOWED_HOSTS = ['4367-2806-10b7-3-7dbd-48c6-c626-58a6-f949.ngrok-free.app', 'localhost','127.0.0.1',]
 
 
 # Application definition
@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'equipos',
     'corsheaders',
     'sesion_juego',
+    'actividadesTangram',
 ]
 
 #Webscokets con Django Channels:

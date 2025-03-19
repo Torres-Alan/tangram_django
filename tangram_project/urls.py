@@ -16,12 +16,13 @@ def api_root(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', api_root),  # Ruta principal muestra una respuesta JSON
-    path('api-auth/', include('rest_framework.urls')),  # Navegación DRF opcional
+    path('', api_root),
+    path('api-auth/', include('rest_framework.urls')),
     path('maestros/', include('maestros.urls')),
     path('salones/', include('salones.urls')),
     path('estudiantes/', include('estudiantes.urls')),
     path('equipos/', include('equipos.urls')),
+    path('actividades/', include('actividadesTangram.urls')),
 ]
 
 

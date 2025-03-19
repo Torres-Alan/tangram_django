@@ -35,7 +35,6 @@ class MaestroCrearVista(APIView):
             print(e)
             return Response({"error": "Ocurrió un error, los datos no pueden ser procesados. Inténtelo nuevamente."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class MaestroAutentificarLogin(APIView):
     def post(self, request):
         try:
@@ -54,14 +53,18 @@ class MaestroAutentificarLogin(APIView):
 
             if maestro_autenticado is not None:
                 # Si el maestro está autenticado correctamente
-                login(request, maestro_autenticado)
-                return JsonResponse({"Exito": "Los datos fueron procesados correctamente."}, status=status.HTTP_200_OK)
+                login(request, maestro_autenticado)  # Inicia la sesión
+
+                # Guarda el id del maestro en el request.user
+                request.user.id = maestro.id  # Puedes acceder a este `id` más tarde
+
+                return JsonResponse({"Exito": "Los datos fueron procesados correctamente.", "id_maestro": maestro.id}, status=status.HTTP_200_OK)
             else:
                 # Si la contraseña no es correcta
                 return JsonResponse({"error": "Contraseña incorrecta."}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            return JsonResponse({"error": "Ocurrió un error inesperado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return JsonResponse({"error": f"Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CerrarSesionMaestro(APIView):
