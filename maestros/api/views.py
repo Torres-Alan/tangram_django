@@ -7,8 +7,11 @@ from maestros.services import registrarMaestro
 from ..models import Maestro
 from .serializers import MaestroSerializer
 from django.contrib.auth import authenticate, login, logout
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
 
 class MaestroCrearVista(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         try:
             # Lista de campos requeridos
@@ -35,12 +38,20 @@ class MaestroCrearVista(APIView):
             print(e)
             return Response({"error": "Ocurrió un error, los datos no pueden ser procesados. Inténtelo nuevamente."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+
+
+
 class MaestroAutentificarLogin(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         try:
             data = request.data
             correo = data['correo']
             contrasena = data['contrasena']
+            print(correo)
+            print(contrasena)
 
             # Verifica si el correo existe, si no existe, devuelve un error
             try:
@@ -52,16 +63,18 @@ class MaestroAutentificarLogin(APIView):
             maestro_autenticado = authenticate(username=maestro.username, password=contrasena)
 
             if maestro_autenticado is not None:
-                # Si el maestro está autenticado correctamente
-                login(request, maestro_autenticado)  # Inicia la sesión
+                refresh = RefreshToken.for_user(maestro_autenticado)
+                access_token = str(refresh.access_token)
+                print('token',access_token)
 
-                # Guarda el id del maestro en el request.user
-                request.user.id = maestro.id  # Puedes acceder a este `id` más tarde
-
-                return JsonResponse({"Exito": "Los datos fueron procesados correctamente.", "id_maestro": maestro.id}, status=status.HTTP_200_OK)
+                return Response({
+                    "Exito": "Autenticación correcta.",
+                    "access_token": access_token,
+                    "refresh_token": str(refresh),
+                    "id_maestro": maestro.id
+                }, status=status.HTTP_200_OK)
             else:
-                # Si la contraseña no es correcta
-                return JsonResponse({"error": "Contraseña incorrecta."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Contraseña incorrecta."}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return JsonResponse({"error": f"Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

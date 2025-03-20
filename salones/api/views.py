@@ -31,6 +31,7 @@ class SalonListarVista(APIView):
         try:
             # Usar el usuario autenticado en lugar de pasar el ID del maestro
             maestro = request.user  # Esto obtiene el maestro (usuario autenticado)
+            print('maestro en sesión: ',maestro)
 
             if not maestro.is_authenticated:
                 return Response({"error": "No estás autenticado."}, status=status.HTTP_401_UNAUTHORIZED)

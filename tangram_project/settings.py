@@ -34,6 +34,7 @@ ALLOWED_HOSTS = ['4367-2806-10b7-3-7dbd-48c6-c626-58a6-f949.ngrok-free.app', 'lo
 INSTALLED_APPS = [
     'daphne',
     'channels',
+    "rest_framework_simplejwt",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,6 +50,16 @@ INSTALLED_APPS = [
     'sesion_juego',
     'actividadesTangram',
 ]
+
+#jwt auth
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
 
 #Webscokets con Django Channels:
 ASGI_APPLICATION = "tangram_project.asgi.application"
