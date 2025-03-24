@@ -64,3 +64,22 @@ class ActividadListarVista(APIView):
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener las actividades: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ActividadEliminarVista(APIView):
+    def delete(self, request, actividad_id):
+        try:
+            # Buscar la actividad por su ID
+            actividad = Actividad.objects.get(id=actividad_id)
+            
+            # Eliminar la actividad
+            actividad.delete()
+
+            # Responder con éxito
+            return Response({"message": "Actividad eliminada correctamente."}, status=status.HTTP_204_NO_CONTENT)
+
+        except Actividad.DoesNotExist:
+            # Si la actividad no existe, enviar un error 404
+            return Response({"error": "Actividad no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            # Manejo de cualquier otro error
+            return Response({"error": f"Ocurrió un error al eliminar la actividad: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

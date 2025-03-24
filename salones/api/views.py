@@ -60,3 +60,21 @@ class SalonListarVista(APIView):
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener los salones: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SalonEliminarVista(APIView):
+    def delete(self, request, salon_id):
+        try:
+            salon = Salon.objects.get(id=salon_id)  # Buscar el salón a eliminar
+
+            # Verificar que el maestro autenticado sea el dueño del salón (opcional)
+            if request.user != salon.docente:
+                return Response({"error": "No tienes permisos para eliminar este salón."}, status=status.HTTP_403_FORBIDDEN)
+
+            salon.delete()  # Eliminar el salón
+            return Response({"message": "Salón eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
+
+        except Salon.DoesNotExist:
+            return Response({"error": "El salón no existe."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Error al eliminar el salón: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
