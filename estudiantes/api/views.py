@@ -30,19 +30,30 @@ class EstudianteCrearVista(APIView):
 class EstudianteAsignarEquipo(APIView):
     def post(self, request):
         try:
-            # Recibir los datos de la solicitud
             data = request.data
-            id_equipo = data.get('id_equipo')
+            id_equipo = data.get('id_equipo')  # Obtener el ID del equipo
             equipo = Equipos.objects.get(id=id_equipo)  # Obtener el equipo
 
-            # Verificar si 'id_estudiantes' está en la solicitud (ahora esperamos una lista de IDs de estudiantes)
-            estudiantes_ids = data.get('id_estudiantes', [])
+            estudiantes_ids = data.get('alumnos', [])
             if not estudiantes_ids:
                 return Response({"error": "Se deben proporcionar al menos un estudiante para asignar."}, status=status.HTTP_400_BAD_REQUEST)
 
-            estudiantes = Estudiante.objects.filter(id__in=estudiantes_ids)  # Filtramos los estudiantes por los IDs proporcionados
+            estudiantes = Estudiante.objects.filter(id__in=estudiantes_ids)
 
-            # Asignar el equipo a todos los estudiantes seleccionados
+            # Detectar cuales estudiantes no están en la base de datos
+            estudiantes_no_existentes = [id for id in estudiantes_ids if id not in estudiantes.values_list('id', flat=True)]
+            if estudiantes_no_existentes:
+                return Response({"error": f"Algunos alumnos no existen: {estudiantes_no_existentes}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Filtrar estudiantes que ya tienen un equipo asignado
+            estudiantes_con_equipo = estudiantes.filter(equipo__isnull=False)
+            if estudiantes_con_equipo.exists():
+                estudiantes_con_equipo_ids = estudiantes_con_equipo.values_list('id', flat=True)
+                return Response({
+                    "error": f"Los siguientes alumnos ya tienen equipo asignado y no pueden ser reasignados: {list(estudiantes_con_equipo_ids)}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Asignar el equipo a todos los estudiantes encontrados
             for estudiante in estudiantes:
                 estudiante.equipo = equipo
                 estudiante.save()
@@ -51,8 +62,6 @@ class EstudianteAsignarEquipo(APIView):
 
         except Equipos.DoesNotExist:
             return Response({"error": "El equipo especificado no existe."}, status=status.HTTP_400_BAD_REQUEST)
-        except Estudiante.DoesNotExist:
-            return Response({"error": "Uno o más estudiantes no existen."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

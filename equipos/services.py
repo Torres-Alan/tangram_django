@@ -14,7 +14,7 @@ class CrearEquipo:
         Crea un equipo, asigna un maestro y estudiantes del salón.
         """
         # Obtener el nombre del equipo y el ID del maestro
-        nombre_equipo = data.get('nombre')
+        nombre_equipo = data.get('nombre_equipo')
         salon_id = data.get('salon_id')  # ID del salón donde se creará el equipo
         maestros_id = data.get('maestro')
 

@@ -78,3 +78,37 @@ class SalonEliminarVista(APIView):
             return Response({"error": "El salón no existe."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": f"Error al eliminar el salón: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class SalonEditarVista(APIView):
+    def put(self, request, salon_id):
+        try:
+            salon = Salon.objects.get(id=salon_id)  # Buscar el salón a editar
+
+            # Verificar que el maestro autenticado sea el dueño del salón (opcional)
+            if request.user != salon.docente:
+                return Response({"error": "No tienes permisos para editar este salón."}, status=status.HTTP_403_FORBIDDEN)
+
+            # Crear un diccionario con los datos a actualizar
+            data_to_update = {}
+
+            # Solo actualizamos los campos 'grado' y 'grupo'
+            if 'grado' in request.data:
+                data_to_update['grado'] = request.data['grado']
+            if 'grupo' in request.data:
+                data_to_update['grupo'] = request.data['grupo']
+
+            # Usar el método update del objeto para guardar solo los cambios
+            for field, value in data_to_update.items():
+                setattr(salon, field, value)
+
+            # Guardar los cambios
+            salon.save()
+
+            # Serializar los datos actualizados
+            serializer = SalonSerializer(salon)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Salon.DoesNotExist:
+            return Response({"error": "El salón no existe."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Error al editar el salón: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
