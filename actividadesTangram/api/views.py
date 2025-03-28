@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from actividadesTangram.api.serializers import ActividadSerializer
 from actividadesTangram.models import Actividad
 from actividadesTangram.services import ActividadService
+from salones.models import Salon
 
 class ActividadCrearVista(APIView):
     def post(self, request):
@@ -70,7 +71,7 @@ class ActividadEliminarVista(APIView):
         try:
             # Buscar la actividad por su ID
             actividad = Actividad.objects.get(id=actividad_id)
-            
+
             # Eliminar la actividad
             actividad.delete()
 
@@ -83,3 +84,34 @@ class ActividadEliminarVista(APIView):
         except Exception as e:
             # Manejo de cualquier otro error
             return Response({"error": f"Ocurrió un error al eliminar la actividad: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AsignarSalonActividad(APIView):
+    def post(self, request):
+        try:
+            # Obtener el ID de la actividad y el ID del salón desde el cuerpo de la solicitud
+            actividad_id = request.data.get('actividad_id')
+            salon_id = request.data.get('salon_id')
+
+            if not actividad_id or not salon_id:
+                return Response({"error": "Se deben proporcionar el ID de la actividad y el ID del salón."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Verificar si la actividad existe
+            try:
+                actividad = Actividad.objects.get(id=actividad_id)
+            except Actividad.DoesNotExist:
+                return Response({"error": "La actividad especificada no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Verificar si el salón existe
+            try:
+                salon = Salon.objects.get(id=salon_id)
+            except Salon.DoesNotExist:
+                return Response({"error": "El salón especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Asignar el salón a la actividad (si ya tenía uno, lo sobrescribe)
+            actividad.salon = salon
+            actividad.save()
+
+            return Response({"success": f"El salón ha sido asignado a la actividad '{actividad.nombre}'."}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error al asignar el salón: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

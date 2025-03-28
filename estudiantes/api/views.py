@@ -9,6 +9,8 @@ from estudiantes.api.serializers import EstudianteSerializer
 from django.core.exceptions import ValidationError
 from django.contrib.auth import login, logout
 from salones.models import Salon
+from sesion_juego.models import SesionJuego
+from rest_framework.permissions import AllowAny
 
 class EstudianteCrearVista(APIView):
     def post(self, request):
@@ -64,50 +66,6 @@ class EstudianteAsignarEquipo(APIView):
             return Response({"error": "El equipo especificado no existe."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class EstudianteAutentificarLogin(APIView):
-    def post(self, request):
-        try:
-            # Obtener el nickname del request
-            data = request.data
-            nickname = data.get('nickname')
-
-            # Verificar si el nickname existe en la base de datos
-            estudiante = Estudiante.objects.filter(nickname=nickname).first()
-
-            if not estudiante:
-                # Si no existe el nickname, retornamos un error
-                return Response({"error": "El nickname no está registrado."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Si el nickname existe, se asigna el equipo al estudiante
-            equipo = Equipos.objects.filter(salon=estudiante.salon).first()  # Buscar el equipo relacionado con el salón
-
-            if equipo:
-                estudiante.equipo = equipo
-                estudiante.save()
-
-            # Iniciar sesión con el estudiante (estudiante ya es el usuario)
-            login(request, estudiante)  # Inicia la sesión del estudiante (estudiante ya es el usuario)
-
-            return Response({
-                "Exito": "Inicio de sesión exitoso.",
-                "equipo": equipo.nombre if equipo else "Sin equipo asignado"
-            }, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"error": f"Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class EstudianteCerrarSesion(APIView):
-    def post(self, request):
-        try:
-            # Realiza el cierre de sesión
-            logout(request)
-            return Response({"Exito": "Sesión cerrada correctamente."}, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"error": f"Error al cerrar la sesión: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ListarEstudiante(APIView):
@@ -179,3 +137,29 @@ class EstudianteEliminarVista(APIView):
         except Exception as e:
             # Manejo de cualquier otro error
             return Response({"error": f"Ocurrió un error al eliminar el alumno: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ObtenerIntegrantesEquipo(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        try:
+            # Obtener el código del equipo enviado en el cuerpo de la solicitud
+            codigo = request.data.get("codigo")
+
+            if not codigo:
+                return Response({"error": "El código del equipo es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Verificar si la sesión de juego existe con ese código
+            try:
+                sesion = SesionJuego.objects.get(codigo=codigo, activa=True)
+            except SesionJuego.DoesNotExist:
+                return Response({"error": "Código de equipo inválido o sesión no activa."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Obtener los estudiantes que pertenecen al equipo de esa sesión
+            estudiantes = Estudiante.objects.filter(equipo=sesion.equipo)
+
+            # Retornar los estudiantes
+            estudiantes_data = [{"id": estudiante.id, "nickname": estudiante.nickname} for estudiante in estudiantes]
+            return Response(estudiantes_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

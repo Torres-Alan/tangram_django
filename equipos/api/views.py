@@ -7,6 +7,7 @@ from equipos.services import CrearEquipo
 from django.core.exceptions import ValidationError
 
 from salones.models import Salon
+from sesion_juego.models import SesionJuego
 
 class ManejoEquipos(APIView):
 
@@ -98,6 +99,36 @@ class EliminarEquipo(APIView):
         except Equipos.DoesNotExist:
             return Response({"error": "El equipo especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
 
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ObtenerCodigosPorEquipo(APIView):
+    def get(self, request, equipo_id):
+        try:
+            # Buscar el equipo por su ID
+            equipo = Equipos.objects.get(id=equipo_id)
+
+            # Obtener las sesiones de juego asociadas a ese equipo
+            sesiones = SesionJuego.objects.filter(equipo=equipo)
+
+            # Si no existen sesiones para ese equipo
+            if not sesiones.exists():
+                return Response({"error": "No se encontraron códigos de juego para este equipo."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Crear la respuesta con los datos de las sesiones de juego
+            sesiones_data = []
+            for sesion in sesiones:
+                sesiones_data.append({
+                    "id": sesion.id,
+                    "codigo": sesion.codigo,
+                    "creada_en": sesion.creada_en,
+                    "activa": sesion.activa,
+                })
+
+            return Response(sesiones_data, status=status.HTTP_200_OK)
+
+        except Equipos.DoesNotExist:
+            return Response({"error": "El equipo especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
