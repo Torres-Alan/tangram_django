@@ -18,9 +18,8 @@ class Salon(models.Model):
         return self.nombre  # Usar el nombre generado como representación del salón
 
     def save(self, *args, **kwargs):
-        if not self.nombre:  # Si no hay nombre (es decir, el maestro no lo proporcionó)
-            # Generar un nombre automático basado en los valores de grado, grupo y ciclo escolar
-            self.nombre = f"Grado {self.grado} - Grupo {self.grupo} ({self.ciclo_escolar_inicio}-{self.ciclo_escolar_fin})"
+        # Generar un nombre automático basado en los valores de grado, grupo y ciclo escolar
+        self.nombre = f"Grado {self.grado} - Grupo {self.grupo} ({self.ciclo_escolar_inicio}-{self.ciclo_escolar_fin})"
         super(Salon, self).save(*args, **kwargs)  # Llamar al método save original
 
     class Meta:

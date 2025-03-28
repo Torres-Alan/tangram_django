@@ -26,12 +26,15 @@ SECRET_KEY = 'django-insecure-jk#-v47@^86ww&p3aw97u#x%cy3h3b4x#nq!$ko4fgi26)f#hp
 DEBUG = True
 
 #HOST DE NGROK:
-#ALLOWED_HOSTS = ['3583-2806-10b7-3-135a-291f-ff9f-106e-c5d5.ngrok-free.app']
+ALLOWED_HOSTS = ['4367-2806-10b7-3-7dbd-48c6-c626-58a6-f949.ngrok-free.app', 'localhost','127.0.0.1',]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
+    "rest_framework_simplejwt",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,7 +47,28 @@ INSTALLED_APPS = [
     'estudiantes',
     'equipos',
     'corsheaders',
+    'sesion_juego',
+    'actividadesTangram',
 ]
+
+#jwt auth
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+#Webscokets con Django Channels:
+ASGI_APPLICATION = "tangram_project.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",  # Solo para desarrollo
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
