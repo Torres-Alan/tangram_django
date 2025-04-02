@@ -55,7 +55,14 @@ class ActividadListarVista(APIView):
                     "horas": actividad.horas,
                     "minutos": actividad.minutos,
                     "segundos": actividad.segundos,
-                    "salon": actividad.salon.id if actividad.salon else None,  # Si el salón es nulo, se pone como None
+                    "salon": {
+                        "id": actividad.salon.id if actividad.salon else None,  # Si el salón es nulo, se pone como None
+                        "nombre": actividad.salon.nombre if actividad.salon else None,  # Nombre del salón
+                        "grado": actividad.salon.grado if actividad.salon else None,  # Grado del salón
+                        "grupo": actividad.salon.grupo if actividad.salon else None,  # Grupo del salón
+                        "ciclo_escolar_inicio": actividad.salon.ciclo_escolar_inicio if actividad.salon else None,  # Ciclo escolar inicio
+                        "ciclo_escolar_fin": actividad.salon.ciclo_escolar_fin if actividad.salon else None,  # Ciclo escolar fin
+                    },
                     "banco_tangrams": actividad.banco_tangrams,
                     "tiempo_total": actividad.tiempo_total(),
                     "maestro": actividad.maestroId.username,  # O cualquier otro campo relevante
@@ -65,6 +72,7 @@ class ActividadListarVista(APIView):
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener las actividades: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ActividadEliminarVista(APIView):
     def delete(self, request, actividad_id):
