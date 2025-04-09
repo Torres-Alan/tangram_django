@@ -192,5 +192,36 @@ class ListaEquiposConSesion(APIView):
         except Exception as e:
             return Response({"error": f"Error al obtener equipos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class EstudiantesPorEquipoVista(APIView):
+    def get(self, request, equipo_id):
+        try:
+            # Obtener el equipo correspondiente por ID
+            equipo = Equipos.objects.filter(id=equipo_id).first()
+            if not equipo:
+                return Response({"error": "Equipo no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Filtrar los estudiantes asignados a ese equipo
+            estudiantes = Estudiante.objects.filter(equipo=equipo)
+
+            # Si no hay estudiantes asignados al equipo
+            if not estudiantes.exists():
+                return Response({"error": "No hay estudiantes asignados a este equipo."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Crear una lista de los estudiantes a devolver
+            estudiantes_data = []
+            for estudiante in estudiantes:
+                estudiantes_data.append({
+                    "id": estudiante.id,
+                    "nombre": estudiante.nombre,
+                    "apellidos": estudiante.apellidos,
+                    "nickname": estudiante.nickname,
+                    "salon": estudiante.salon.id if estudiante.salon else None,  # Si el salón es nulo, se pone como None
+                })
+
+            return Response(estudiantes_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error al obtener los estudiantes: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 #class TraerSesionesEquipo(APIView):

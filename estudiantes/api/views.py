@@ -140,6 +140,7 @@ class EstudianteEliminarVista(APIView):
 
 class ObtenerIntegrantesEquipo(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         try:
             # Obtener el código del equipo enviado en el cuerpo de la solicitud
@@ -154,12 +155,34 @@ class ObtenerIntegrantesEquipo(APIView):
             except SesionJuego.DoesNotExist:
                 return Response({"error": "Código de equipo inválido o sesión no activa."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Obtener los estudiantes que pertenecen al equipo de esa sesión
-            estudiantes = Estudiante.objects.filter(equipo=sesion.equipo)
+            # Obtener el id del equipo asociado con la sesión
+            equipo = sesion.equipo  # El equipo está relacionado a la sesión de juego por FK
 
-            # Retornar los estudiantes
-            estudiantes_data = [{"id": estudiante.id, "nickname": estudiante.nickname} for estudiante in estudiantes]
-            return Response(estudiantes_data, status=status.HTTP_200_OK)
+            # Obtener los estudiantes que pertenecen al equipo de esa sesión
+            estudiantes = Estudiante.objects.filter(equipo=equipo)
+
+            # Crear los datos de respuesta, incluyendo nombre, apellidos y nickname de los estudiantes
+            estudiantes_data = [
+                {
+                    "id": estudiante.id,
+                    "nombre": estudiante.nombre,
+                    "apellidos": estudiante.apellidos,
+                    "nickname": estudiante.nickname,
+                }
+                for estudiante in estudiantes
+            ]
+
+            # Datos del equipo (corrigiendo los campos disponibles)
+            equipo_data = {
+                "id_equipo": equipo.id,
+                "nombre_equipo": equipo.nombre,  # Aquí utilizamos el campo "nombre" del equipo
+            }
+
+            # Retornar la información del equipo y sus estudiantes
+            return Response({
+                "equipo": equipo_data,
+                "estudiantes": estudiantes_data,
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
