@@ -48,6 +48,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             contenido=mensaje,
             estudiante= estudiante,
         )
+        return mensaje_guardado
 
     async def enviar_mensaje_chat(self, data):
         """ Enviar un mensaje de chat a todos los clientes de la sala """
@@ -56,14 +57,16 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         mensaje_guardado=await self.guardar_mensaje(mensaje,usuario,)
         print(f'mensaje guardado: {mensaje_guardado}')
-        
+        print(f'id_mensaje: {mensaje_guardado.id}')
+
         # Enviar el mensaje a todos los miembros del grupo de la sala
         await self.channel_layer.group_send(
             self.sala_grupo,
             {
                 "type": "chat_message",
                 "usuario": usuario,
-                "mensaje": mensaje
+                "mensaje": mensaje,
+                "mensaje_id":mensaje_guardado.id,
             }
         )
 
