@@ -23,7 +23,7 @@ class Message(models.Model):
     mensaje_padre = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)  # Mensaje al que responde
 
     def __str__(self):
-        return f'{self.estudiante.nickname}: {self.content[:20]}...'  # Muestra un resumen del contenido
+        return f'{self.estudiante.nickname}: {self.contenido[:20]}...'  # Muestra un resumen del contenido
 
     class Meta:
         ordering = ['enviado_en']  # Ordenar los mensajes por la fecha

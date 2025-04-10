@@ -1,7 +1,9 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from sesion_juego.models import SesionJuego
+from estudiantes.models import Estudiante
+from sesion_juego.models import Message, SesionJuego
+from channels.db import database_sync_to_async
 
 class JuegoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -35,12 +37,26 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             await self.enviar_mensaje_chat(data)
         elif tipo == "actualizar_tangram":
             await self.actualizar_tangram(data)
+        elif tipo == "responder_mensaje":
+            await self.responder_mensaje(data)
+
+    @database_sync_to_async
+    def guardar_mensaje(self, mensaje,usuario):
+        estudiante= Estudiante.objects.get(nickname=usuario)
+        #guardar todos los mensajes en el modelo
+        mensaje_guardado =  Message.objects.create(
+            contenido=mensaje,
+            estudiante= estudiante,
+        )
 
     async def enviar_mensaje_chat(self, data):
         """ Enviar un mensaje de chat a todos los clientes de la sala """
         mensaje = data["mensaje"]
         usuario = data["usuario"]
 
+        mensaje_guardado=await self.guardar_mensaje(mensaje,usuario,)
+        print(f'mensaje guardado: {mensaje_guardado}')
+        
         # Enviar el mensaje a todos los miembros del grupo de la sala
         await self.channel_layer.group_send(
             self.sala_grupo,
@@ -64,6 +80,45 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             }
         )
 
+    @database_sync_to_async
+    def responder_bd(self, respuesta,usuario,mensaje_id):
+         # Buscar el mensaje original al que se está respondiendo
+        try:
+            mensaje_original = Message.objects.get(id=mensaje_id)
+        except Message.DoesNotExist:
+            return self.send(text_data=json.dumps({
+                "error": "Mensaje original no encontrado"
+            }))
+
+        estudiante= Estudiante.objects.get(nickname=usuario)
+        # Crear el mensaje de respuesta
+        mensaje_respuesta =  Message.objects.create(
+            estudiante=estudiante,  # Suponiendo que el nombre de usuario es único
+            contenido=respuesta,
+            mensaje_padre=mensaje_original
+        )
+    
+    
+    async def responder_mensaje(self, data):
+        """ Manejar la respuesta de un mensaje de chat """
+        respuesta=data["respuesta"]
+        usuario=data["usuario"]
+        mensaje_id=data["mensaje_id"]
+
+        await self.responder_bd(respuesta,usuario,mensaje_id)
+
+        # Enviar la respuesta al grupo
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "chat_message",
+                "usuario": usuario,
+                "mensaje": respuesta,
+            }
+        )
+
+    
+    
     async def sesion_activa(self, codigo):
         """ Verifica si la sesión con el código dado está activa """
         sesion = await SesionJuego.objects.filter(codigo=codigo, activa=True).afirst()

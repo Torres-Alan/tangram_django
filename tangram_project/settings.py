@@ -26,8 +26,11 @@ SECRET_KEY = 'django-insecure-jk#-v47@^86ww&p3aw97u#x%cy3h3b4x#nq!$ko4fgi26)f#hp
 DEBUG = True
 
 #HOST DE NGROK:
-ALLOWED_HOSTS = ['4367-2806-10b7-3-7dbd-48c6-c626-58a6-f949.ngrok-free.app', 'localhost','127.0.0.1',]
+ALLOWED_HOSTS = ['monster-suitable-kangaroo.ngrok-free.app', 'localhost','127.0.0.1',]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://monster-suitable-kangaroo.ngrok-free.app'
+]
 
 # Application definition
 
