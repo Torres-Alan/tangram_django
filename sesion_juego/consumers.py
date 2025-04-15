@@ -74,7 +74,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         """ Compartir el estado del tangram con todos en la sesión """
         estado_tangram = data["estado"]
 
-        # Enviar el estado actualizado del tangram a todos los miembros del grupo
         await self.channel_layer.group_send(
             self.sala_grupo,
             {
@@ -84,62 +83,106 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def responder_bd(self, respuesta,usuario,mensaje_id):
-         # Buscar el mensaje original al que se está respondiendo
+    def responder_bd(self, respuesta, usuario, mensaje_id):
         try:
             mensaje_original = Message.objects.get(id=mensaje_id)
         except Message.DoesNotExist:
-            return self.send(text_data=json.dumps({
-                "error": "Mensaje original no encontrado"
-            }))
+            return None, None, None
 
-        estudiante= Estudiante.objects.get(nickname=usuario)
-        # Crear el mensaje de respuesta
-        mensaje_respuesta =  Message.objects.create(
-            estudiante=estudiante,  # Suponiendo que el nombre de usuario es único
+        estudiante = Estudiante.objects.get(nickname=usuario)
+
+        mensaje_respuesta = Message.objects.create(
+            estudiante=estudiante,
             contenido=respuesta,
             mensaje_padre=mensaje_original
         )
-    
-    
+
+        return mensaje_respuesta.id, mensaje_original.estudiante.nickname, mensaje_original.contenido
+
+    # --- Método para manejar la acción del cliente
     async def responder_mensaje(self, data):
-        """ Manejar la respuesta de un mensaje de chat """
-        respuesta=data["respuesta"]
-        usuario=data["usuario"]
-        mensaje_id=data["mensaje_id"]
+        respuesta = data["respuesta"]
+        usuario = data["usuario"]
+        mensaje_id = data["mensaje_id"]
 
-        await self.responder_bd(respuesta,usuario,mensaje_id)
+        nuevo_id, original_autor, original_contenido = await self.responder_bd(respuesta, usuario, mensaje_id)
 
-        # Enviar la respuesta al grupo
+        if not nuevo_id:
+            await self.send(text_data=json.dumps({
+                "error": "Mensaje original no encontrado"
+            }))
+            return
+
         await self.channel_layer.group_send(
             self.sala_grupo,
             {
                 "type": "chat_message",
                 "usuario": usuario,
                 "mensaje": respuesta,
+                "mensaje_id": nuevo_id,
+                "mensaje_responde_id": mensaje_id,
+                "mensaje_original": {
+                    "sender": original_autor,
+                    "text": original_contenido,
+                }
             }
         )
 
-    
-    
+
     async def sesion_activa(self, codigo):
         """ Verifica si la sesión con el código dado está activa """
         sesion = await SesionJuego.objects.filter(codigo=codigo, activa=True).afirst()
         return sesion is not None  # Retorna True si la sesión existe y está activa
 
-    # Responder con el mensaje de chat
+    # --- Método que envía el mensaje final al cliente
     async def chat_message(self, event):
-        """ Enviar mensaje de chat a los clientes de la sala """
         await self.send(text_data=json.dumps({
             "tipo": "chat",
             "usuario": event["usuario"],
-            "mensaje": event["mensaje"]
+            "mensaje": event["mensaje"],
+            "mensaje_id": event["mensaje_id"],
+            "mensaje_responde_id": event.get("mensaje_responde_id"),
+            "mensaje_original": event.get("mensaje_original"),
         }))
 
-    # Responder con la actualización del tangram
+
     async def estado_tangram(self, event):
-        """ Enviar actualización del tangram a los clientes de la sala """
+        """ Enviar actualización del tangram a los clientes """
         await self.send(text_data=json.dumps({
             "tipo": "actualizar_tangram",
             "estado": event["estado"]
+        }))
+
+    # Cuando alguien empieza a mover una pieza
+    async def bloquear_pieza(self, data):
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "pieza_bloqueada",
+                "pieza_id": data["pieza_id"],
+                "usuario": data["usuario"]
+            }
+        )
+
+    # Cuando alguien suelta una pieza
+    async def liberar_pieza(self, data):
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "pieza_liberada",
+                "pieza_id": data["pieza_id"]
+            }
+        )
+
+    async def pieza_bloqueada(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "pieza_bloqueada",
+            "pieza_id": event["pieza_id"],
+            "usuario": event["usuario"]
+        }))
+
+    async def pieza_liberada(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "pieza_liberada",
+            "pieza_id": event["pieza_id"]
         }))
