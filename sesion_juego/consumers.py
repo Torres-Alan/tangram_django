@@ -36,9 +36,15 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         if tipo == "chat":
             await self.enviar_mensaje_chat(data)
         elif tipo == "actualizar_tangram":
+            print("METODO PA' ACTUALIZAR INICIADOOOOOOOOO GORDA PUTA")
             await self.actualizar_tangram(data)
         elif tipo == "responder_mensaje":
             await self.responder_mensaje(data)
+        elif tipo == "bloquear_pieza":
+            await self.bloquear_pieza(data)
+        elif tipo == "liberar_pieza":
+            await self.liberar_pieza(data)
+
 
     @database_sync_to_async
     def guardar_mensaje(self, mensaje,usuario):
@@ -70,7 +76,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    async def actualizar_tangram(self, data):
+    async def actualizar_tangram(self, data): 
         """ Compartir el estado del tangram con todos en la sesión """
         estado_tangram = data["estado"]
 
@@ -99,6 +105,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         return mensaje_respuesta.id, mensaje_original.estudiante.nickname, mensaje_original.contenido
 
+    
+    
     # --- Método para manejar la acción del cliente
     async def responder_mensaje(self, data):
         respuesta = data["respuesta"]
