@@ -1,4 +1,3 @@
-# actividadesTangram/serializers.py
 from rest_framework import serializers
 from ..models import Actividad
 from salones.models import Salon
@@ -12,4 +11,4 @@ class ActividadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Actividad
-        fields = ['id', 'nombre', 'horas', 'minutos', 'segundos', 'salon', 'banco_tangrams', 'maestroId']
+        fields = ['id', 'nombre', 'horas', 'minutos', 'segundos', 'salon', 'banco_tangrams', 'maestroId', 'activo']
