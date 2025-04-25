@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'sesion_juego',
     'actividadesTangram',
+    'evidencias', 
 ]
 
 #jwt auth

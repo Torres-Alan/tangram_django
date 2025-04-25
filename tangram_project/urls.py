@@ -23,6 +23,7 @@ urlpatterns = [
     path('estudiantes/', include('estudiantes.urls')),
     path('equipos/', include('equipos.urls')),
     path('actividades/', include('actividadesTangram.urls')),
+    path('evidencias/', include('evidencias.urls')),
 ]
 
 
