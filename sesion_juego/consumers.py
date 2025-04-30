@@ -3,9 +3,11 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from estudiantes.models import Estudiante
 from sesion_juego.models import Message, SesionJuego
 from channels.db import database_sync_to_async
+from django.utils import timezone  
 
 # Estado en memoria por sesión de juego
 estado_sesiones = {}
+MAX_CHAT_MENSAJES = 10  # Limitar historial de chat por sesión
 
 class JuegoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -38,8 +40,16 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             await self.liberar_pieza(data)
         elif tipo == "usuario_listo":
             await self.usuario_listo(data)
-        elif tipo == "reiniciar_sesion":  
+        elif tipo == "usuario_listo_finalizar":
+            await self.usuario_listo_finalizar(data)
+        elif tipo == "usuario_listo_inicio":
+            await self.usuario_listo_inicio(data)
+        elif tipo == "reiniciar_sesion":
             await self.reiniciar_sesion(data)
+        elif tipo == "solicitar_estado_actual":
+            await self.enviar_estado_actual()
+        elif tipo == "solicitar_historial_chat":
+            await self.enviar_historial_chat()
 
     @database_sync_to_async
     def guardar_mensaje(self, mensaje, usuario):
@@ -56,6 +66,15 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         mensaje_guardado = await self.guardar_mensaje(mensaje, usuario)
 
+        if self.codigo_sesion not in estado_sesiones:
+            estado_sesiones[self.codigo_sesion] = {}
+
+        historial = estado_sesiones[self.codigo_sesion].setdefault("chat_historial", [])
+        historial.append({"usuario": usuario, "mensaje": mensaje})
+
+        if len(historial) > MAX_CHAT_MENSAJES:
+            historial.pop(0)
+
         await self.channel_layer.group_send(
             self.sala_grupo,
             {
@@ -68,6 +87,12 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
     async def actualizar_tangram(self, data):
         estado_tangram = data["estado"]
+
+        if self.codigo_sesion not in estado_sesiones:
+            estado_sesiones[self.codigo_sesion] = {}
+
+        estado_sesiones[self.codigo_sesion]["pieces"] = estado_tangram.get("pieces", [])
+        estado_sesiones[self.codigo_sesion]["rotation"] = estado_tangram.get("rotation", {})
 
         await self.channel_layer.group_send(
             self.sala_grupo,
@@ -101,9 +126,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         nuevo_id, original_autor, original_contenido = await self.responder_bd(respuesta, usuario, mensaje_id)
 
         if not nuevo_id:
-            await self.send(text_data=json.dumps({
-                "error": "Mensaje original no encontrado"
-            }))
+            await self.send(text_data=json.dumps({"error": "Mensaje original no encontrado"}))
             return
 
         await self.channel_layer.group_send(
@@ -173,10 +196,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             "pieza_id": event["pieza_id"]
         }))
 
-    # ------------------------------
-    # NUEVA LÓGICA: Turnos / Imagen
-    # ------------------------------
-
     @database_sync_to_async
     def obtener_total_usuarios(self, codigo):
         try:
@@ -196,7 +215,15 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 "total_usuarios": total
             }
 
-        estado = estado_sesiones[self.codigo_sesion]
+        estado = estado_sesiones.setdefault(self.codigo_sesion, {})
+
+        if "usuarios_listos" not in estado:
+            estado["usuarios_listos"] = set()
+        if "indice" not in estado:
+            estado["indice"] = 0
+        if "total_usuarios" not in estado:
+            estado["total_usuarios"] = await self.obtener_total_usuarios(self.codigo_sesion)
+
         estado["usuarios_listos"].add(nickname)
 
         await self.channel_layer.group_send(
@@ -210,6 +237,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         if len(estado["usuarios_listos"]) >= estado["total_usuarios"]:
             estado["indice"] += 1
             estado["usuarios_listos"] = set()
+            estado.pop("pieces", None)
+            estado.pop("rotation", None)
 
             await self.channel_layer.group_send(
                 self.sala_grupo,
@@ -219,10 +248,109 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+
+    async def usuario_listo_finalizar(self, data):
+        nickname = data.get("usuario")
+
+        if self.codigo_sesion not in estado_sesiones:
+            total = await self.obtener_total_usuarios(self.codigo_sesion)
+            estado_sesiones[self.codigo_sesion] = {
+                "usuarios_listos_finalizar": set(),
+                "total_usuarios": total
+            }
+
+        estado = estado_sesiones.setdefault(self.codigo_sesion, {})
+
+        if "usuarios_listos_finalizar" not in estado:
+            estado["usuarios_listos_finalizar"] = set()
+        if "total_usuarios" not in estado:
+            estado["total_usuarios"] = await self.obtener_total_usuarios(self.codigo_sesion)
+
+        estado["usuarios_listos_finalizar"].add(nickname)
+
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "enviar_listos_finalizar",
+                "usuarios_listos_finalizar": list(estado["usuarios_listos_finalizar"]),
+            }
+        )
+
+        if len(estado["usuarios_listos_finalizar"]) >= estado["total_usuarios"]:
+            estado.clear()
+
+            await self.channel_layer.group_send(
+                self.sala_grupo,
+                {
+                    "type": "todos_finalizar",
+                }
+            )
+
     async def enviar_listos(self, event):
         await self.send(text_data=json.dumps({
             "tipo": "usuario_listo",
             "usuarios_listos": event["usuarios_listos"]
+        }))
+
+    async def enviar_listos_finalizar(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "usuarios_listos_finalizar",
+            "usuarios_listos_finalizar": event["usuarios_listos_finalizar"]
+        }))
+        
+        
+    async def usuario_listo_inicio(self, data):
+        nickname = data.get("usuario")
+
+        if self.codigo_sesion not in estado_sesiones:
+            total = await self.obtener_total_usuarios(self.codigo_sesion)
+            estado_sesiones[self.codigo_sesion] = {
+                "usuarios_listos_inicio": set(),
+                "total_usuarios": total
+            }
+
+        estado = estado_sesiones.setdefault(self.codigo_sesion, {})
+
+        if "usuarios_listos_inicio" not in estado:
+            estado["usuarios_listos_inicio"] = set()
+        if "total_usuarios" not in estado:
+            estado["total_usuarios"] = await self.obtener_total_usuarios(self.codigo_sesion)
+
+        estado["usuarios_listos_inicio"].add(nickname)
+
+        # 🔥 Notifica a todos quiénes ya le dieron a "Estoy listo"
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "enviar_listos_inicio",
+                "usuarios_listos_inicio": list(estado["usuarios_listos_inicio"]),
+            }
+        )
+
+        # 🔥 Si todos ya dieron click, empieza el juego
+        if len(estado["usuarios_listos_inicio"]) >= estado["total_usuarios"]:
+            await self.channel_layer.group_send(
+                self.sala_grupo,
+                {
+                    "type": "todos_listos_inicio"
+                }
+            )
+
+    async def enviar_listos_inicio(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "usuarios_listos_inicio",
+            "usuarios_listos_inicio": event["usuarios_listos_inicio"]
+        }))
+
+    async def todos_listos_inicio(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "todos_listos_inicio"
+        }))
+
+
+    async def todos_finalizar(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "todos_finalizar"
         }))
 
     async def cambiar_imagen(self, event):
@@ -230,7 +358,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             "tipo": "cambiar_imagen",
             "nuevo_indice": event["nuevo_indice"]
         }))
-    
+
     async def reiniciar_sesion(self, event):
         codigo = self.codigo_sesion
 
@@ -239,15 +367,46 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         estado_sesiones[codigo]["indice"] = 0
         estado_sesiones[codigo]["usuarios_listos"] = set()
-        estado_sesiones[codigo]["total_usuarios"] = await self.obtener_total_usuarios(codigo)  # 🔥 Agregado esto
-        
-        print(f"🌀 Sesión reiniciada en servidor para: {codigo}")
+        estado_sesiones[codigo]["total_usuarios"] = await self.obtener_total_usuarios(codigo)
+
+        if "pieces" in estado_sesiones[codigo]:
+            estado_sesiones[codigo].pop("pieces")
+        if "rotation" in estado_sesiones[codigo]:
+            estado_sesiones[codigo].pop("rotation")
+        if "usuarios_listos_finalizar" in estado_sesiones[codigo]:
+            estado_sesiones[codigo].pop("usuarios_listos_finalizar")
 
         await self.send(text_data=json.dumps({
             "tipo": "reiniciar_sesion",
             "mensaje": "Sesión reiniciada correctamente."
         }))
 
+    async def enviar_estado_actual(self):
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+        
+        if "hora_inicio" in estado:
+            tiempo_transcurrido = timezone.now().timestamp() - estado["hora_inicio"]
+            total_segundos = (self.scope["session_tiempo_segundos"]) if hasattr(self.scope, "session_tiempo_segundos") else 3600  # fallback de 1hr
+            segundos_restantes = max(0, int(total_segundos - tiempo_transcurrido))
+        else:
+            segundos_restantes = None
+        
+        await self.send(text_data=json.dumps({
+            "tipo": "estado_actual",
+            "estado": {
+                "pieces": estado.get("pieces", []),
+                "rotation": estado.get("rotation", {}),
+                "indice": estado.get("indice", 0),
+                "usuarios_listos": list(estado.get("usuarios_listos", set())),
+                "usuarios_listos_finalizar": list(estado.get("usuarios_listos_finalizar", set())),
+            }
+        }))
 
+    async def enviar_historial_chat(self):
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+        historial = estado.get("chat_historial", [])
 
-    
+        await self.send(text_data=json.dumps({
+            "tipo": "historial_chat",
+            "mensajes": historial
+        }))
