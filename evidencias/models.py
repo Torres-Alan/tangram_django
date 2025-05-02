@@ -31,8 +31,8 @@ class EvidenciaTangram(models.Model):
 
 
 class ImagenEvidencia(models.Model):
-    evidencia = models.ForeignKey(EvidenciaTangram, on_delete=models.CASCADE, related_name="imagenes")
-    imagen = models.ImageField(upload_to='evidencias/imagenes/')
+    evidencia = models.ForeignKey('EvidenciaTangram', related_name='imagenes', on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to='evidencias/')
     orden = models.PositiveIntegerField(default=0)
 
     def __str__(self):

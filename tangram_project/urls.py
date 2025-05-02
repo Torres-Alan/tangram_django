@@ -2,6 +2,9 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from django.conf import settings
+from django.conf.urls.static import static
+
 
 # Vista simple para la ruta principal
 @api_view(["GET"])
@@ -24,15 +27,10 @@ urlpatterns = [
     path('equipos/', include('equipos.urls')),
     path('actividades/', include('actividadesTangram.urls')),
     path('evidencias/', include('evidencias.urls')),
+    
 ]
 
 
-
-# urlpatterns = [
-#     path('admin/', admin.site.urls),
-#     path('', include('maestros.urls')),
-#     path('', include('salones.urls')),
-#     path('', include('estudiantes.urls')),
-#     path('', include('equipos.urls')),
-#     #path('sesion_juego/', include('sesion_juego.routing')), no se agrega la ruta de web sockets
-# ]
+# Para servir archivos multimedia (imágenes de evidencia) en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

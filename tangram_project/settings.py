@@ -55,6 +55,9 @@ INSTALLED_APPS = [
     'evidencias', 
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media' #PARA MANDAR URL'S DE MIS IMAGENES?
+
 #jwt auth
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

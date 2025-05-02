@@ -4,8 +4,11 @@ from rest_framework import status
 from django.core.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 
+from estudiantes.models import Estudiante
+from evidencias.models import EvidenciaTangram, ImagenEvidencia
 from evidencias.services import EvidenciaService
-from evidencias.api.serializers import EvidenciaTangramSerializer
+from evidencias.api.serializers import EvidenciaTangramSerializer, ImagenEvidenciaSerializer
+from rest_framework.permissions import IsAuthenticated
 
 class EvidenciaCrearVista(APIView):
     permission_classes = [AllowAny]
@@ -21,3 +24,79 @@ class EvidenciaCrearVista(APIView):
             return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class EvidenciasDelMaestroView(APIView):
+    def get(self, request):
+        maestro = request.user
+        actividad_id = request.query_params.get('actividad')
+        salon_id = request.query_params.get('salon')
+        equipo_id = request.query_params.get('equipo')
+
+        evidencias_data = []
+
+        evidencias = EvidenciaTangram.objects.select_related(
+            "actividad", "equipo", "actividad__salon"
+        ).all()
+
+        # Filtros
+        if actividad_id:
+            evidencias = evidencias.filter(actividad__id=actividad_id)
+
+        if salon_id:
+            evidencias = evidencias.filter(actividad__salon__id=salon_id)
+
+        if equipo_id:
+            evidencias = evidencias.filter(equipo__id=equipo_id)
+
+        for evidencia in evidencias:
+            actividad = evidencia.actividad
+            equipo = evidencia.equipo
+            salon = actividad.salon if actividad else None
+
+            if salon and salon.docente_id == maestro.id:
+                evidencias_data.append({
+                    "id": evidencia.id,
+                    "nombre": evidencia.nombre,
+                    "actividad": actividad.nombre if actividad else "Sin actividad",
+                    "salon": f"{salon.grado}° {salon.grupo}" if salon else "Sin salón",
+                    "equipo": equipo.nombre if equipo else "Sin equipo",
+                    "fecha": evidencia.fecha_creacion.strftime("%Y-%m-%d %H:%M"),
+                })
+
+        return Response(evidencias_data)
+
+class InformacionCompletaPorEvidencia(APIView):
+    def get(self, request, id_evidencia):
+        try:
+            evidencia = EvidenciaTangram.objects.select_related('actividad', 'equipo').get(id=id_evidencia)
+        except EvidenciaTangram.DoesNotExist:
+            return Response({"detail": "La evidencia no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtener imágenes armadas
+        imagenes = ImagenEvidencia.objects.filter(evidencia=evidencia).order_by('orden')
+        imagenes_serializer = ImagenEvidenciaSerializer(imagenes, many=True, context={'request': request})
+
+        # Obtener imágenes originales de la actividad
+        imagenes_originales = evidencia.actividad.banco_tangrams if evidencia.actividad and evidencia.actividad.banco_tangrams else []
+
+        # Obtener información del equipo
+        equipo = evidencia.equipo
+        estudiantes = Estudiante.objects.filter(equipo=equipo).values('id', 'nombre', 'apellidos', 'nickname')
+
+        equipo_data = {
+            "id": equipo.id,
+            "nombre": equipo.nombre,
+            "salon_id": equipo.salon_id,
+            "created_by_id": equipo.created_by_id,
+            "created_at": equipo.created_at,
+            "estudiantes": list(estudiantes)
+        }
+
+        return Response({
+            "evidencia_id": evidencia.id,
+            "nombre_evidencia": evidencia.nombre,
+            "fecha_creacion": evidencia.fecha_creacion,
+            "imagenes_evidencia": imagenes_serializer.data,
+            "imagenes_originales": imagenes_originales,
+            "equipo": equipo_data
+        }, status=status.HTTP_200_OK)
