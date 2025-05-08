@@ -1,9 +1,8 @@
 from django.db import models
 from django.utils.timezone import now, localtime
-
-# Importaciones necesarias
 from equipos.models import Equipos
 from actividadesTangram.models import Actividad
+from estudiantes.models import Estudiante
 
 
 class EvidenciaTangram(models.Model):
@@ -13,7 +12,7 @@ class EvidenciaTangram(models.Model):
     nombre = models.CharField(max_length=255, editable=False)
 
     def save(self, *args, **kwargs):
-        fecha_hora = localtime().strftime('%Y-%m-%d_%H%M')  # 🔥 Usa localtime()
+        fecha_hora = localtime().strftime('%Y-%m-%d_%H%M')
 
         if self.actividad and self.equipo:
             actividad_nombre = self.actividad.nombre.replace(" ", "").strip()[:20]
@@ -37,3 +36,21 @@ class ImagenEvidencia(models.Model):
 
     def __str__(self):
         return f"Imagen {self.orden} de {self.evidencia.nombre}"
+
+
+
+class EstadisticaEvidencia(models.Model):
+    evidencia = models.ForeignKey(EvidenciaTangram, related_name="estadisticas", on_delete=models.CASCADE)
+
+    estudiante = models.ForeignKey(
+        Estudiante, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    nombre_estudiante = models.CharField(max_length=100)
+    nickname_estudiante = models.CharField(max_length=50)
+
+    mensajes_enviados = models.PositiveIntegerField(default=0)
+    respuestas_enviadas = models.PositiveIntegerField(default=0)
+    piezas_movidas = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.nickname_estudiante} ({self.nombre_estudiante}) - {self.evidencia.nombre}"

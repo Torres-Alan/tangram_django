@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from evidencias.models import EvidenciaTangram, ImagenEvidencia
+from evidencias.models import EvidenciaTangram, ImagenEvidencia, EstadisticaEvidencia
 
 
 class ImagenEvidenciaSerializer(serializers.ModelSerializer):
@@ -16,11 +16,35 @@ class ImagenEvidenciaSerializer(serializers.ModelSerializer):
         return None
 
 
+class EstadisticaEvidenciaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EstadisticaEvidencia
+        fields = [
+            'id',
+            'nombre_estudiante',
+            'nickname_estudiante',
+            'mensajes_enviados',
+            'respuestas_enviadas',
+            'piezas_movidas'
+        ]
+
+
 class EvidenciaTangramSerializer(serializers.ModelSerializer):
     imagenes = ImagenEvidenciaSerializer(many=True, read_only=True)
+    estadisticas = EstadisticaEvidenciaSerializer(many=True, read_only=True)
     actividad_nombre = serializers.CharField(source='actividad.nombre', read_only=True)
     equipo_nombre = serializers.CharField(source='equipo.nombre', read_only=True)
 
     class Meta:
         model = EvidenciaTangram
-        fields = ['id', 'nombre', 'fecha_creacion', 'actividad', 'actividad_nombre', 'equipo', 'equipo_nombre', 'imagenes']
+        fields = [
+            'id',
+            'nombre',
+            'fecha_creacion',
+            'actividad',
+            'actividad_nombre',
+            'equipo',
+            'equipo_nombre',
+            'imagenes',
+            'estadisticas'
+        ]

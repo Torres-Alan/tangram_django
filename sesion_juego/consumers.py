@@ -9,6 +9,7 @@ from django.utils import timezone
 estado_sesiones = {}
 MAX_CHAT_MENSAJES = 10  # Limitar historial de chat por sesión
 
+
 class JuegoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.codigo_sesion = self.scope['url_route']['kwargs']['codigo']
@@ -50,6 +51,44 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             await self.enviar_estado_actual()
         elif tipo == "solicitar_historial_chat":
             await self.enviar_historial_chat()
+        elif tipo == "registrar_evidencia":
+            await self.registrar_evidencia_id(data)
+
+
+    @database_sync_to_async
+    def guardar_estadisticas(self, participacion, evidencia_id):
+        from evidencias.models import EstadisticaEvidencia, EvidenciaTangram
+        from estudiantes.models import Estudiante
+
+        print("📥 Guardando estadísticas en BD...")
+
+        try:
+            evidencia = EvidenciaTangram.objects.get(id=evidencia_id)
+        except Exception as e:
+            print(f"❌ Error al obtener evidencia: {e}")
+            return
+
+        for nickname, stats in participacion.items():
+            try:
+                estudiante = Estudiante.objects.filter(nickname=nickname).first()
+                print(f"👤 Procesando {nickname} → Estudiante: {estudiante}")
+
+                nombre = estudiante.nombre if estudiante else "Desconocido"
+
+                EstadisticaEvidencia.objects.create(
+                    evidencia=evidencia,
+                    estudiante=estudiante,
+                    nombre_estudiante=nombre,
+                    nickname_estudiante=nickname,
+                    mensajes_enviados=stats.get("mensajes_enviados", 0),
+                    respuestas_enviadas=stats.get("respuestas_enviadas", 0),
+                    piezas_movidas=stats.get("piezas_movidas", 0),
+                )
+                print(f"✅ Estadística guardada para {nickname}")
+            except Exception as e:
+                print(f"❌ Error al guardar estadísticas para {nickname}: {e}")
+
+
 
     @database_sync_to_async
     def guardar_mensaje(self, mensaje, usuario):
@@ -69,8 +108,25 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         if self.codigo_sesion not in estado_sesiones:
             estado_sesiones[self.codigo_sesion] = {}
 
-        historial = estado_sesiones[self.codigo_sesion].setdefault("chat_historial", [])
-        historial.append({"usuario": usuario, "mensaje": mensaje})
+        estado = estado_sesiones[self.codigo_sesion]
+
+        # Asegura que exista historial y participacion
+        historial = estado.setdefault("chat_historial", [])
+        participacion = estado.setdefault("participacion", {})
+
+        # Si es la primera vez del usuario, inicializa sus métricas
+        user_stats = participacion.setdefault(usuario, {
+            "mensajes_enviados": 0,
+            "respuestas_enviadas": 0,
+            "piezas_movidas": 0
+        })
+        user_stats["mensajes_enviados"] += 1
+
+        historial.append({
+            "usuario": usuario,
+            "mensaje": mensaje,
+            "mensaje_id": mensaje_guardado.id
+        })
 
         if len(historial) > MAX_CHAT_MENSAJES:
             historial.pop(0)
@@ -85,14 +141,28 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             }
         )
 
+
     async def actualizar_tangram(self, data):
         estado_tangram = data["estado"]
+        usuario = data.get("usuario")  # 🔥 El frontend debe incluir el nickname del usuario que mueve la pieza
 
         if self.codigo_sesion not in estado_sesiones:
             estado_sesiones[self.codigo_sesion] = {}
 
-        estado_sesiones[self.codigo_sesion]["pieces"] = estado_tangram.get("pieces", [])
-        estado_sesiones[self.codigo_sesion]["rotation"] = estado_tangram.get("rotation", {})
+        estado = estado_sesiones[self.codigo_sesion]
+
+        estado["pieces"] = estado_tangram.get("pieces", [])
+        estado["rotation"] = estado_tangram.get("rotation", {})
+
+        # 🔥 Registrar movimiento de pieza
+        if usuario:
+            participacion = estado.setdefault("participacion", {})
+            user_stats = participacion.setdefault(usuario, {
+                "mensajes_enviados": 0,
+                "respuestas_enviadas": 0,
+                "piezas_movidas": 0
+            })
+            user_stats["piezas_movidas"] += 1
 
         await self.channel_layer.group_send(
             self.sala_grupo,
@@ -101,6 +171,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 "estado": estado_tangram
             }
         )
+
 
     @database_sync_to_async
     def responder_bd(self, respuesta, usuario, mensaje_id):
@@ -143,6 +214,38 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 }
             }
         )
+
+        if self.codigo_sesion not in estado_sesiones:
+            estado_sesiones[self.codigo_sesion] = {}
+
+        estado = estado_sesiones[self.codigo_sesion]
+
+        # Asegura que existan historial y participación
+        historial = estado.setdefault("chat_historial", [])
+        participacion = estado.setdefault("participacion", {})
+
+        # Inicializa estadísticas si es la primera vez del usuario
+        user_stats = participacion.setdefault(usuario, {
+            "mensajes_enviados": 0,
+            "respuestas_enviadas": 0,
+            "piezas_movidas": 0
+        })
+        user_stats["respuestas_enviadas"] += 1
+
+        historial.append({
+            "usuario": usuario,
+            "mensaje": respuesta,
+            "mensaje_id": nuevo_id,
+            "mensaje_responde_id": mensaje_id,
+            "mensaje_original": {
+                "sender": original_autor,
+                "text": original_contenido,
+            }
+        })
+
+        if len(historial) > MAX_CHAT_MENSAJES:
+            historial.pop(0)
+
 
     async def sesion_activa(self, codigo):
         sesion = await SesionJuego.objects.filter(codigo=codigo, activa=True).afirst()
@@ -268,6 +371,9 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         estado["usuarios_listos_finalizar"].add(nickname)
 
+        print(f"✅ [{self.codigo_sesion}] {nickname} está listo para finalizar")
+        print(f"✅ Listos hasta ahora: {estado['usuarios_listos_finalizar']}/{estado['total_usuarios']}")
+
         await self.channel_layer.group_send(
             self.sala_grupo,
             {
@@ -277,6 +383,18 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         )
 
         if len(estado["usuarios_listos_finalizar"]) >= estado["total_usuarios"]:
+            evidencia_id = estado.get("evidencia_id")
+            participacion = estado.get("participacion", {})
+
+            print("🚨 Todos listos para finalizar")
+            print("📌 Evidencia ID:", evidencia_id)
+            print("📌 Participación acumulada:", participacion)
+
+            if evidencia_id:
+                await self.guardar_estadisticas(participacion, evidencia_id)
+            else:
+                print("❌ No se encontró evidencia_id en estado_sesiones")
+
             estado.clear()
 
             await self.channel_layer.group_send(
@@ -285,6 +403,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     "type": "todos_finalizar",
                 }
             )
+
 
     async def enviar_listos(self, event):
         await self.send(text_data=json.dumps({
@@ -297,8 +416,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             "tipo": "usuarios_listos_finalizar",
             "usuarios_listos_finalizar": event["usuarios_listos_finalizar"]
         }))
-        
-        
+
+
     async def usuario_listo_inicio(self, data):
         nickname = data.get("usuario")
 
@@ -383,14 +502,14 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
     async def enviar_estado_actual(self):
         estado = estado_sesiones.get(self.codigo_sesion, {})
-        
+
         if "hora_inicio" in estado:
             tiempo_transcurrido = timezone.now().timestamp() - estado["hora_inicio"]
             total_segundos = (self.scope["session_tiempo_segundos"]) if hasattr(self.scope, "session_tiempo_segundos") else 3600  # fallback de 1hr
             segundos_restantes = max(0, int(total_segundos - tiempo_transcurrido))
         else:
             segundos_restantes = None
-        
+
         await self.send(text_data=json.dumps({
             "tipo": "estado_actual",
             "estado": {
@@ -410,3 +529,11 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             "tipo": "historial_chat",
             "mensajes": historial
         }))
+
+    async def registrar_evidencia_id(self, data):
+        evidencia_id = data.get("evidencia_id")
+        if self.codigo_sesion not in estado_sesiones:
+            estado_sesiones[self.codigo_sesion] = {}
+
+        estado_sesiones[self.codigo_sesion]["evidencia_id"] = evidencia_id
+        print(f"✅ Evidencia {evidencia_id} registrada en estado para sesión {self.codigo_sesion}")

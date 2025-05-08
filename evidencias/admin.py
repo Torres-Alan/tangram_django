@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import EvidenciaTangram, ImagenEvidencia
+from .models import EvidenciaTangram, ImagenEvidencia, EstadisticaEvidencia
 
 
 class EvidenciaTangramAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre', 'actividad', 'equipo', 'fecha_creacion')  # Columnas clave
+    list_display = ('id', 'nombre', 'actividad', 'equipo', 'fecha_creacion')
     search_fields = (
         'nombre',
         'actividad__nombre',
@@ -11,9 +11,9 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
         'equipo__salon__grado',
         'equipo__salon__grupo',
     )
-    list_filter = ('actividad', 'equipo__salon', 'fecha_creacion')  # Filtros útiles
-    ordering = ('-fecha_creacion',)  # Últimas evidencias primero
-    date_hierarchy = 'fecha_creacion'  # Filtro de navegación por fecha
+    list_filter = ('actividad', 'equipo__salon', 'fecha_creacion')
+    ordering = ('-fecha_creacion',)
+    date_hierarchy = 'fecha_creacion'
 
 
 class ImagenEvidenciaAdmin(admin.ModelAdmin):
@@ -22,5 +22,21 @@ class ImagenEvidenciaAdmin(admin.ModelAdmin):
     list_filter = ('evidencia__actividad',)
 
 
+class EstadisticaEvidenciaAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'evidencia',
+        'nickname_estudiante',
+        'nombre_estudiante',
+        'mensajes_enviados',
+        'respuestas_enviadas',
+        'piezas_movidas'
+    )
+    search_fields = ('nickname_estudiante', 'nombre_estudiante', 'evidencia__nombre')
+    list_filter = ('evidencia__actividad', 'evidencia__equipo')
+    ordering = ('-evidencia__fecha_creacion',)
+
+
 admin.site.register(EvidenciaTangram, EvidenciaTangramAdmin)
 admin.site.register(ImagenEvidencia, ImagenEvidenciaAdmin)
+admin.site.register(EstadisticaEvidencia, EstadisticaEvidenciaAdmin)

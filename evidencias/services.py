@@ -1,6 +1,7 @@
-from evidencias.models import EvidenciaTangram, ImagenEvidencia
+from evidencias.models import EvidenciaTangram, ImagenEvidencia, EstadisticaEvidencia
 from actividadesTangram.models import Actividad
 from equipos.models import Equipos
+from estudiantes.models import Estudiante
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 import base64
@@ -10,7 +11,7 @@ class EvidenciaService:
     @staticmethod
     def crear_evidencia(datos_evidencia):
         """
-        Crea una nueva evidencia con sus respectivas imágenes.
+        Crea una nueva evidencia con sus respectivas imágenes y estadísticas por estudiante.
         """
         try:
             # Validar campos obligatorios
@@ -50,6 +51,24 @@ class EvidenciaService:
                     evidencia=evidencia,
                     imagen=data,
                     orden=index
+                )
+
+            # Procesar estadísticas si se incluyen
+            estadisticas = datos_evidencia.get('estadisticas', [])
+            for estadistica in estadisticas:
+                try:
+                    estudiante = Estudiante.objects.get(nickname=estadistica['nickname'])
+                except Estudiante.DoesNotExist:
+                    estudiante = None
+
+                EstadisticaEvidencia.objects.create(
+                    evidencia=evidencia,
+                    estudiante=estudiante,
+                    nombre_estudiante=estadistica.get('nombre_estudiante', ''),
+                    nickname_estudiante=estadistica.get('nickname', ''),
+                    mensajes_enviados=estadistica.get('mensajes_enviados', 0),
+                    respuestas_enviadas=estadistica.get('respuestas_enviadas', 0),
+                    piezas_movidas=estadistica.get('piezas_movidas', 0)
                 )
 
             return evidencia
