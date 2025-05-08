@@ -4,6 +4,8 @@ from estudiantes.models import Estudiante
 from sesion_juego.models import Message, SesionJuego
 from channels.db import database_sync_to_async
 from django.utils import timezone  
+import asyncio  # ← Asegúrate de tener esto al inicio de tu archivo
+
 
 # Estado en memoria por sesión de juego
 estado_sesiones = {}
@@ -392,18 +394,28 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
             if evidencia_id:
                 await self.guardar_estadisticas(participacion, evidencia_id)
+                estado["finalizado"] = True
             else:
                 print("❌ No se encontró evidencia_id en estado_sesiones")
 
-            estado.clear()
+            # Solo el último ejecuta handleFinalizar
+            await self.send(text_data=json.dumps({
+                "tipo": "todos_finalizar",
+                "ultimo_en_finalizar": nickname
+            }))
+            await asyncio.sleep(2)
 
+
+            # 🔁 Broadcast para que todos salgan al login
             await self.channel_layer.group_send(
                 self.sala_grupo,
                 {
-                    "type": "todos_finalizar",
+                    "type": "forzar_salida"
                 }
             )
 
+            # ✅ BORRAR estado de la sesión para reinicio limpio
+            estado_sesiones.pop(self.codigo_sesion, None)
 
     async def enviar_listos(self, event):
         await self.send(text_data=json.dumps({
@@ -537,3 +549,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         estado_sesiones[self.codigo_sesion]["evidencia_id"] = evidencia_id
         print(f"✅ Evidencia {evidencia_id} registrada en estado para sesión {self.codigo_sesion}")
+        
+    async def forzar_salida(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "salir_al_login"
+        }))

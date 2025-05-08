@@ -16,25 +16,11 @@ class EvidenciaCrearVista(APIView):
     def post(self, request):
         try:
             datos = request.data
-            codigo_sesion = datos.get("codigo_sesion")
-
-            from sesion_juego.consumers import estado_sesiones
-
-            # 🛡️ Verifica si ya se creó evidencia en esta sesión
-            if codigo_sesion in estado_sesiones and "evidencia_id" in estado_sesiones[codigo_sesion]:
-                evidencia_id = estado_sesiones[codigo_sesion]["evidencia_id"]
-                evidencia = EvidenciaTangram.objects.get(id=evidencia_id)
-                serializer = EvidenciaTangramSerializer(evidencia, context={"request": request})
-                return Response({
-                    "mensaje": "Ya se registró una evidencia para esta sesión.",
-                    "evidencia_id": evidencia.id,
-                    "evidencia": serializer.data
-                }, status=status.HTTP_200_OK)
-
-            # ✅ Crear nueva evidencia
             evidencia = EvidenciaService.crear_evidencia(datos)
 
-            # 💾 Guardar el ID en memoria para bloquear duplicados
+            # Guardar evidencia_id en estado_sesiones
+            from sesion_juego.consumers import estado_sesiones
+            codigo_sesion = datos.get("codigo_sesion")
             if codigo_sesion:
                 if codigo_sesion not in estado_sesiones:
                     estado_sesiones[codigo_sesion] = {}
@@ -50,7 +36,6 @@ class EvidenciaCrearVista(APIView):
             return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 class EvidenciasDelMaestroView(APIView):
