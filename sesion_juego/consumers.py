@@ -10,6 +10,9 @@ import asyncio  # ← Asegúrate de tener esto al inicio de tu archivo
 # Estado en memoria por sesión de juego
 estado_sesiones = {}
 MAX_CHAT_MENSAJES = 10  # Limitar historial de chat por sesión
+# Guarda estadísticas temporales por sesión hasta que se reciba el evidencia_id
+
+estadisticas_temporales = {}
 
 
 class JuegoConsumer(AsyncWebsocketConsumer):
@@ -385,18 +388,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         )
 
         if len(estado["usuarios_listos_finalizar"]) >= estado["total_usuarios"]:
-            evidencia_id = estado.get("evidencia_id")
             participacion = estado.get("participacion", {})
-
-            print("🚨 Todos listos para finalizar")
-            print("📌 Evidencia ID:", evidencia_id)
-            print("📌 Participación acumulada:", participacion)
-
-            if evidencia_id:
-                await self.guardar_estadisticas(participacion, evidencia_id)
-                estado["finalizado"] = True
-            else:
-                print("❌ No se encontró evidencia_id en estado_sesiones")
+            estadisticas_temporales[self.codigo_sesion] = participacion  # 🔥 Guárdalas temporalmente
 
             # Solo el último ejecuta handleFinalizar
             await self.send(text_data=json.dumps({
@@ -405,8 +398,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             }))
             await asyncio.sleep(2)
 
-
-            # 🔁 Broadcast para que todos salgan al login
             await self.channel_layer.group_send(
                 self.sala_grupo,
                 {
@@ -414,8 +405,8 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-            # ✅ BORRAR estado de la sesión para reinicio limpio
             estado_sesiones.pop(self.codigo_sesion, None)
+
 
     async def enviar_listos(self, event):
         await self.send(text_data=json.dumps({
@@ -544,12 +535,45 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
     async def registrar_evidencia_id(self, data):
         evidencia_id = data.get("evidencia_id")
+
         if self.codigo_sesion not in estado_sesiones:
             estado_sesiones[self.codigo_sesion] = {}
 
         estado_sesiones[self.codigo_sesion]["evidencia_id"] = evidencia_id
         print(f"✅ Evidencia {evidencia_id} registrada en estado para sesión {self.codigo_sesion}")
-        
+
+        if evidencia_id and self.codigo_sesion in estadisticas_temporales:
+            try:
+                await self.guardar_estadisticas_por_evidencia_id(
+                    evidencia_id,
+                    estadisticas_temporales[self.codigo_sesion]
+                )
+                print(f"✅ Estadísticas guardadas para evidencia {evidencia_id}")
+            except Exception as e:
+                print(f"❌ Error guardando estadísticas: {str(e)}")
+
+            del estadisticas_temporales[self.codigo_sesion]
+
+    @database_sync_to_async
+    def guardar_estadisticas_por_evidencia_id(self, evidencia_id, datos_participacion):
+        from evidencias.models import EstadisticaEvidencia, Estudiante
+        from django.db import transaction
+
+        with transaction.atomic():
+            for nickname, valores in datos_participacion.items():
+                estudiante = Estudiante.objects.filter(nickname=nickname).first()
+                if estudiante:
+                    EstadisticaEvidencia.objects.create(
+                        evidencia_id=evidencia_id,
+                        estudiante=estudiante,
+                        nombre_estudiante=estudiante.nombre,
+                        nickname_estudiante=nickname,
+                        mensajes_enviados=valores.get("mensajes_enviados", 0),
+                        respuestas_enviadas=valores.get("respuestas_enviadas", 0),
+                        piezas_movidas=valores.get("piezas_movidas", 0),
+                    )
+
+    
     async def forzar_salida(self, event):
         await self.send(text_data=json.dumps({
             "tipo": "salir_al_login"
