@@ -45,6 +45,8 @@ class EvidenciaTangramSerializer(serializers.ModelSerializer):
             'actividad_nombre',
             'equipo',
             'equipo_nombre',
+            'nombre_equipo',
+            'banco_tangram_original',
             'imagenes',
             'estadisticas'
         ]

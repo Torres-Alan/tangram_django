@@ -35,8 +35,11 @@ class EvidenciaService:
             # Crear la evidencia
             evidencia = EvidenciaTangram.objects.create(
                 actividad=actividad,
-                equipo=equipo
+                equipo=equipo,
+                banco_tangram_original=actividad.banco_tangrams,
+                nombre_equipo=equipo.nombre  # o datos_evidencia.get('nombre_equipo') si lo manda el frontend
             )
+
 
             # Procesar y guardar imágenes
             imagenes = datos_evidencia['imagenes']  # Lista de strings base64

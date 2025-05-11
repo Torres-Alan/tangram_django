@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -72,7 +73,7 @@ class EvidenciasDelMaestroView(APIView):
                     "nombre": evidencia.nombre,
                     "actividad": actividad.nombre if actividad else "Sin actividad",
                     "salon": f"{salon.grado}° {salon.grupo}" if salon else "Sin salón",
-                    "equipo": equipo.nombre if equipo else "Sin equipo",
+                    "equipo": evidencia.nombre_equipo or "Sin equipo",  # ← aquí el cambio
                     "fecha": evidencia.fecha_creacion.strftime("%Y-%m-%d %H:%M"),
                 })
 
@@ -88,17 +89,18 @@ class InformacionCompletaPorEvidencia(APIView):
         imagenes = ImagenEvidencia.objects.filter(evidencia=evidencia).order_by('orden')
         imagenes_serializer = ImagenEvidenciaSerializer(imagenes, many=True, context={'request': request})
 
-        imagenes_originales = evidencia.actividad.banco_tangrams if evidencia.actividad and evidencia.actividad.banco_tangrams else []
+        # ✅ Usar el arreglo estático de la evidencia, no el de la actividad
+        imagenes_originales = evidencia.banco_tangram_original or []
 
         equipo = evidencia.equipo
         estudiantes = Estudiante.objects.filter(equipo=equipo).values('id', 'nombre', 'apellidos', 'nickname')
 
         equipo_data = {
-            "id": equipo.id,
-            "nombre": equipo.nombre,
-            "salon_id": equipo.salon_id,
-            "created_by_id": equipo.created_by_id,
-            "created_at": equipo.created_at,
+            "id": equipo.id if equipo else None,
+            "nombre": equipo.nombre if equipo else evidencia.nombre_equipo,
+            "salon_id": equipo.salon_id if equipo else None,
+            "created_by_id": equipo.created_by_id if equipo else None,
+            "created_at": equipo.created_at if equipo else None,
             "estudiantes": list(estudiantes)
         }
 
@@ -119,9 +121,21 @@ class InformacionCompletaPorEvidencia(APIView):
             "imagenes_originales": imagenes_originales,
             "equipo": equipo_data,
             "estadisticas": estadisticas_serializer.data,
-            "totales": {  # 👈 Sección adicional
+            "totales": {
                 "mensajes_enviados": total_mensajes,
                 "respuestas_enviadas": total_respuestas,
                 "piezas_movidas": total_movimientos
             }
         }, status=status.HTTP_200_OK)
+        
+class EvidenciaEliminarVista(APIView):
+    def delete(self, request, evidencia_id):
+        try:
+            evidencia = get_object_or_404(EvidenciaTangram, id=evidencia_id)
+
+            evidencia.delete()
+
+            return Response({"message": "Evidencia eliminada correctamente."}, status=status.HTTP_204_NO_CONTENT)
+
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error al eliminar la evidencia: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

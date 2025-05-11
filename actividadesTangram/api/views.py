@@ -9,6 +9,7 @@ from actividadesTangram.services import ActividadService
 from salones.models import Salon
 from sesion_juego.models import SesionJuego  
 from rest_framework.permissions import AllowAny
+from django.shortcuts import get_object_or_404
 
 class ActividadCrearVista(APIView):
     def post(self, request):
@@ -200,3 +201,25 @@ class ActividadActivaPorEquipo(APIView):
             return Response({"error": "Código de sesión no válido."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener la actividad activa: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ActividadEditarVista(APIView):
+    def patch(self, request, actividad_id):
+        try:
+            actividad = get_object_or_404(Actividad, id=actividad_id)
+
+            if request.user != actividad.maestroId:
+                return Response({"error": "No tienes permisos para editar esta actividad."}, status=status.HTTP_403_FORBIDDEN)
+
+            campos_permitidos = ['nombre', 'horas', 'minutos', 'segundos', 'banco_tangrams']
+            data = request.data
+
+            for campo in campos_permitidos:
+                if campo in data:
+                    setattr(actividad, campo, data[campo])
+
+            actividad.save()
+            serializer = ActividadSerializer(actividad)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Error al editar la actividad: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
