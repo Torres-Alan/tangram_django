@@ -1,4 +1,5 @@
 # equipos/api/views.py
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -223,5 +224,16 @@ class EstudiantesPorEquipoVista(APIView):
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener los estudiantes: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class EditarNombreEquipoView(APIView):
+    def patch(self, request, equipo_id):
+        nuevo_nombre = request.data.get("nombre")
 
+        if not nuevo_nombre:
+            return Response({"error": "El campo 'nombre' es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        equipo = get_object_or_404(Equipos, id=equipo_id)
+        equipo.nombre = nuevo_nombre
+        equipo.save()
+
+        return Response({"mensaje": "Nombre del equipo actualizado correctamente."}, status=status.HTTP_200_OK)
 #class TraerSesionesEquipo(APIView):

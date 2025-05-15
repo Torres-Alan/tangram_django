@@ -1,6 +1,6 @@
 # equipos/API/urls.py
 from django.urls import path
-from .views import ActualizarEstadoSesion, EliminarEquipo, EquiposListarVista, EstudiantesPorEquipoVista, ListaEquiposConSesion, ManejoEquipos, ObtenerCodigosPorEquipo
+from .views import ActualizarEstadoSesion, EditarNombreEquipoView, EliminarEquipo, EquiposListarVista, EstudiantesPorEquipoVista, ListaEquiposConSesion, ManejoEquipos, ObtenerCodigosPorEquipo
 
 urlpatterns = [
     path('crear_equipo/', ManejoEquipos.as_view(), name='crear_equipo'),
@@ -10,6 +10,6 @@ urlpatterns = [
     path('actualizar_estado_sesion/<int:equipo_id>/', ActualizarEstadoSesion.as_view(), name='actualizar_estado_sesion'),
     path('lista_con_sesion/', ListaEquiposConSesion.as_view(), name='lista_equipos_con_sesion'),
     path('estudiantes_por_equipo/<int:equipo_id>/', EstudiantesPorEquipoVista.as_view(), name='estudiantes_por_equipo'),
-
+    path('editar_nombre_equipo/<int:equipo_id>/', EditarNombreEquipoView.as_view(), name='editar_nombre_equipo'),
     #path('traer_sesiones_equipo/', ManejoEquipos.as_view(), name='traer_sesiones_equipo'),
 ]

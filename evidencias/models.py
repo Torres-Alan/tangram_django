@@ -11,9 +11,10 @@ class EvidenciaTangram(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     nombre = models.CharField(max_length=255, editable=False)
 
-    # 🔹 Nuevos campos:
     banco_tangram_original = models.JSONField(default=list, blank=True)
     nombre_equipo = models.CharField(max_length=100, blank=True)
+    nombre_actividad = models.CharField(max_length=100, blank=True)
+    nombre_salon = models.CharField(max_length=100, blank=True)
 
     def save(self, *args, **kwargs):
         fecha_hora = localtime().strftime('%Y-%m-%d_%H%M')
@@ -24,9 +25,15 @@ class EvidenciaTangram(models.Model):
 
             self.nombre = f"Evidencia_{actividad_nombre}_{equipo_nombre}_{fecha_hora}"
 
-            # Si no se ha seteado aún el nombre del equipo, lo guarda
             if not self.nombre_equipo:
                 self.nombre_equipo = self.equipo.nombre
+
+            if not self.nombre_actividad:
+                self.nombre_actividad = self.actividad.nombre
+
+            if not self.nombre_salon and self.actividad.salon:
+                self.nombre_salon = f"{self.actividad.salon.grado} {self.actividad.salon.grupo}"
+
         else:
             self.nombre = f"Evidencia_SinDatos_{fecha_hora}"
 
@@ -43,7 +50,6 @@ class ImagenEvidencia(models.Model):
 
     def __str__(self):
         return f"Imagen {self.orden} de {self.evidencia.nombre}"
-
 
 
 class EstadisticaEvidencia(models.Model):

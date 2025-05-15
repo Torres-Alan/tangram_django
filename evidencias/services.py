@@ -7,6 +7,7 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 
+
 class EvidenciaService:
     @staticmethod
     def crear_evidencia(datos_evidencia):
@@ -32,14 +33,20 @@ class EvidenciaService:
             except Equipos.DoesNotExist:
                 raise ValidationError("El equipo proporcionado no existe.")
 
-            # Crear la evidencia
+            # Obtener nombre del salón con formato: "1 A 2024-2025"
+            nombre_salon = ""
+            if actividad.salon:
+                salon = actividad.salon
+                nombre_salon = f"{salon.grado}º{salon.grupo} ({salon.ciclo_escolar_inicio}–{salon.ciclo_escolar_fin})"
+            # Crear la evidencia con campos estáticos adicionales
             evidencia = EvidenciaTangram.objects.create(
                 actividad=actividad,
                 equipo=equipo,
                 banco_tangram_original=actividad.banco_tangrams,
-                nombre_equipo=equipo.nombre  # o datos_evidencia.get('nombre_equipo') si lo manda el frontend
+                nombre_equipo=equipo.nombre,
+                nombre_actividad=actividad.nombre,
+                nombre_salon=nombre_salon
             )
-
 
             # Procesar y guardar imágenes
             imagenes = datos_evidencia['imagenes']  # Lista de strings base64

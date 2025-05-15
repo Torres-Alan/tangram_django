@@ -8,12 +8,16 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
         'nombre',
         'actividad',
         'equipo',
-        'nombre_equipo',  # ← Nuevo campo agregado
+        'nombre_equipo',
+        'nombre_actividad',  # ← Agregado
+        'nombre_salon',      # ← Agregado
         'fecha_creacion',
     )
     search_fields = (
         'nombre',
-        'nombre_equipo',  # ← Nuevo campo agregado
+        'nombre_equipo',
+        'nombre_actividad',  # ← Agregado
+        'nombre_salon',      # ← Agregado
         'actividad__nombre',
         'equipo__nombre',
         'equipo__salon__grado',
@@ -26,7 +30,12 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
     )
     ordering = ('-fecha_creacion',)
     date_hierarchy = 'fecha_creacion'
-    readonly_fields = ('banco_tangram_original',)  # ← Solo lectura en el formulario (opcional)
+    readonly_fields = (
+        'banco_tangram_original',
+        'nombre_equipo',
+        'nombre_actividad',   # ← Opcionalmente solo lectura
+        'nombre_salon',       # ← Opcionalmente solo lectura
+    )
 
 
 class ImagenEvidenciaAdmin(admin.ModelAdmin):

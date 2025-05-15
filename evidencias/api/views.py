@@ -38,7 +38,6 @@ class EvidenciaCrearVista(APIView):
         except Exception as e:
             return Response({"error": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class EvidenciasDelMaestroView(APIView):
     def get(self, request):
         maestro = request.user
@@ -64,20 +63,20 @@ class EvidenciasDelMaestroView(APIView):
 
         for evidencia in evidencias:
             actividad = evidencia.actividad
-            equipo = evidencia.equipo
             salon = actividad.salon if actividad else None
 
             if salon and salon.docente_id == maestro.id:
                 evidencias_data.append({
                     "id": evidencia.id,
                     "nombre": evidencia.nombre,
-                    "actividad": actividad.nombre if actividad else "Sin actividad",
-                    "salon": f"{salon.grado}° {salon.grupo}" if salon else "Sin salón",
-                    "equipo": evidencia.nombre_equipo or "Sin equipo",  # ← aquí el cambio
+                    "actividad": evidencia.nombre_actividad or "Sin actividad",
+                    "salon": evidencia.nombre_salon or "Sin salón",
+                    "equipo": evidencia.nombre_equipo or "Sin equipo",
                     "fecha": evidencia.fecha_creacion.strftime("%Y-%m-%d %H:%M"),
                 })
 
         return Response(evidencias_data)
+
 
 class InformacionCompletaPorEvidencia(APIView):
     def get(self, request, id_evidencia):
@@ -88,6 +87,9 @@ class InformacionCompletaPorEvidencia(APIView):
 
         imagenes = ImagenEvidencia.objects.filter(evidencia=evidencia).order_by('orden')
         imagenes_serializer = ImagenEvidenciaSerializer(imagenes, many=True, context={'request': request})
+        imagenes_con_indice = [
+            {**img, "indice": img.get("orden", 0)} for img in imagenes_serializer.data
+        ]
 
         # ✅ Usar el arreglo estático de la evidencia, no el de la actividad
         imagenes_originales = evidencia.banco_tangram_original or []
@@ -117,7 +119,7 @@ class InformacionCompletaPorEvidencia(APIView):
             "evidencia_id": evidencia.id,
             "nombre_evidencia": evidencia.nombre,
             "fecha_creacion": evidencia.fecha_creacion,
-            "imagenes_evidencia": imagenes_serializer.data,
+            "imagenes_evidencia": imagenes_con_indice,
             "imagenes_originales": imagenes_originales,
             "equipo": equipo_data,
             "estadisticas": estadisticas_serializer.data,
