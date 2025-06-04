@@ -54,10 +54,8 @@ class EvidenciasDelMaestroView(APIView):
         # Filtros
         if actividad_id:
             evidencias = evidencias.filter(actividad__id=actividad_id)
-
         if salon_id:
             evidencias = evidencias.filter(actividad__salon__id=salon_id)
-
         if equipo_id:
             evidencias = evidencias.filter(equipo__id=equipo_id)
 
@@ -65,13 +63,14 @@ class EvidenciasDelMaestroView(APIView):
             actividad = evidencia.actividad
             salon = actividad.salon if actividad else None
 
-            if salon and salon.docente_id == maestro.id:
+            # Si no hay actividad ni salón, permitir igualmente mostrar la evidencia
+            if not actividad or (salon and salon.docente_id == maestro.id):
                 evidencias_data.append({
                     "id": evidencia.id,
                     "nombre": evidencia.nombre,
-                    "actividad": evidencia.nombre_actividad or "Sin actividad",
-                    "salon": evidencia.nombre_salon or "Sin salón",
-                    "equipo": evidencia.nombre_equipo or "Sin equipo",
+                    "actividad": evidencia.nombre_actividad if evidencia.nombre_actividad else "Sin actividad",
+                    "salon": evidencia.nombre_salon if evidencia.nombre_salon else "Sin salón",
+                    "equipo": evidencia.nombre_equipo if evidencia.nombre_equipo else "Sin equipo",
                     "fecha": evidencia.fecha_creacion.strftime("%Y-%m-%d %H:%M"),
                 })
 
@@ -106,11 +105,9 @@ class InformacionCompletaPorEvidencia(APIView):
             "estudiantes": list(estudiantes)
         }
 
-        # 🔥 Obtener estadísticas
         estadisticas = EstadisticaEvidencia.objects.filter(evidencia=evidencia)
         estadisticas_serializer = EstadisticaEvidenciaSerializer(estadisticas, many=True)
 
-        # 🔢 Calcular totales
         total_mensajes = sum(e.mensajes_enviados for e in estadisticas)
         total_respuestas = sum(e.respuestas_enviadas for e in estadisticas)
         total_movimientos = sum(e.piezas_movidas for e in estadisticas)

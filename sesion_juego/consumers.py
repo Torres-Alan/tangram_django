@@ -5,6 +5,7 @@ from sesion_juego.models import Message, SesionJuego
 from channels.db import database_sync_to_async
 from django.utils import timezone  
 import asyncio  # ← Asegúrate de tener esto al inicio de tu archivo
+import time
 
 
 # Estado en memoria por sesión de juego
@@ -389,23 +390,15 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         if len(estado["usuarios_listos_finalizar"]) >= estado["total_usuarios"]:
             participacion = estado.get("participacion", {})
-            estadisticas_temporales[self.codigo_sesion] = participacion  # 🔥 Guárdalas temporalmente
+            estadisticas_temporales[self.codigo_sesion] = participacion
 
-            # Solo el último ejecuta handleFinalizar
+            # ✅ Avisa al último para ejecutar handleFinalizar
             await self.send(text_data=json.dumps({
                 "tipo": "todos_finalizar",
                 "ultimo_en_finalizar": nickname
             }))
-            await asyncio.sleep(2)
 
-            await self.channel_layer.group_send(
-                self.sala_grupo,
-                {
-                    "type": "forzar_salida"
-                }
-            )
-
-            estado_sesiones.pop(self.codigo_sesion, None)
+            # ❌ NO mandes salir todavía, espera a que llegue registrar_evidencia
 
 
     async def enviar_listos(self, event):
@@ -535,12 +528,23 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
     async def registrar_evidencia_id(self, data):
         evidencia_id = data.get("evidencia_id")
+        nickname = data.get("nickname")
+
+        print(f"📩 RECIBIDO registrar_evidencia: evidencia_id={evidencia_id}, nickname={nickname}")
 
         if self.codigo_sesion not in estado_sesiones:
-            estado_sesiones[self.codigo_sesion] = {}
+            print(f"⚠️ No hay estado para la sesión {self.codigo_sesion}")
+            await self.send(text_data=json.dumps({
+                "tipo": "registro_estadisticas_error",
+                "error": f"No hay estado para la sesión {self.codigo_sesion}"
+            }))
+            return
 
         estado_sesiones[self.codigo_sesion]["evidencia_id"] = evidencia_id
         print(f"✅ Evidencia {evidencia_id} registrada en estado para sesión {self.codigo_sesion}")
+
+        participacion = estado_sesiones[self.codigo_sesion].get("participacion", {})
+        print(f"📊 Datos de participación: {participacion}")
 
         if evidencia_id and self.codigo_sesion in estadisticas_temporales:
             try:
@@ -549,10 +553,37 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     estadisticas_temporales[self.codigo_sesion]
                 )
                 print(f"✅ Estadísticas guardadas para evidencia {evidencia_id}")
+
+                # 🔔 Notificar éxito solo al que envió
+                await self.send(text_data=json.dumps({
+                    "tipo": "registro_estadisticas_ok",
+                    "evidencia_id": evidencia_id
+                }))
+
+                # 🔁 Notificar a todos para salir
+                await self.channel_layer.group_send(
+                    self.sala_grupo,
+                    {
+                        "type": "forzar_salida"
+                    }
+                )
+
             except Exception as e:
                 print(f"❌ Error guardando estadísticas: {str(e)}")
 
+                # ❌ Notificar error al frontend
+                await self.send(text_data=json.dumps({
+                    "tipo": "registro_estadisticas_error",
+                    "error": str(e)
+                }))
+
             del estadisticas_temporales[self.codigo_sesion]
+
+        # ✅ Siempre se hace al final
+        estado_sesiones.pop(self.codigo_sesion, None)
+
+
+
 
     @database_sync_to_async
     def guardar_estadisticas_por_evidencia_id(self, evidencia_id, datos_participacion):
@@ -573,7 +604,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                         piezas_movidas=valores.get("piezas_movidas", 0),
                     )
 
-    
     async def forzar_salida(self, event):
         await self.send(text_data=json.dumps({
             "tipo": "salir_al_login"
