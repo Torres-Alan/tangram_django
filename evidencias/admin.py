@@ -9,15 +9,18 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
         'actividad',
         'equipo',
         'nombre_equipo',
-        'nombre_actividad',  # ← Agregado
-        'nombre_salon',      # ← Agregado
+        'nombre_actividad',
+        'nombre_salon',
+        'horas',         # ⏱️ Agregado
+        'minutos',       # ⏱️ Agregado
+        'segundos',      # ⏱️ Agregado
         'fecha_creacion',
     )
     search_fields = (
         'nombre',
         'nombre_equipo',
-        'nombre_actividad',  # ← Agregado
-        'nombre_salon',      # ← Agregado
+        'nombre_actividad',
+        'nombre_salon',
         'actividad__nombre',
         'equipo__nombre',
         'equipo__salon__grado',
@@ -33,8 +36,11 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
     readonly_fields = (
         'banco_tangram_original',
         'nombre_equipo',
-        'nombre_actividad',   # ← Opcionalmente solo lectura
-        'nombre_salon',       # ← Opcionalmente solo lectura
+        'nombre_actividad',
+        'nombre_salon',
+        'horas',        # ⏱️ Agregado
+        'minutos',      # ⏱️ Agregado
+        'segundos',     # ⏱️ Agregado
     )
 
 

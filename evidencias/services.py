@@ -33,19 +33,29 @@ class EvidenciaService:
             except Equipos.DoesNotExist:
                 raise ValidationError("El equipo proporcionado no existe.")
 
-            # Obtener nombre del salón con formato: "1 A 2024-2025"
+            # Obtener nombre del salón con formato: "1ºA (2024–2025)"
             nombre_salon = ""
             if actividad.salon:
                 salon = actividad.salon
                 nombre_salon = f"{salon.grado}º{salon.grupo} ({salon.ciclo_escolar_inicio}–{salon.ciclo_escolar_fin})"
-            # Crear la evidencia con campos estáticos adicionales
+
+            # ✅ Obtener y convertir el tiempo si está presente
+            tiempo_segundos = datos_evidencia.get('tiempo_segundos', 0)
+            horas = tiempo_segundos // 3600
+            minutos = (tiempo_segundos % 3600) // 60
+            segundos = tiempo_segundos % 60
+
+            # ✅ Crear la evidencia con tiempo y campos adicionales
             evidencia = EvidenciaTangram.objects.create(
                 actividad=actividad,
                 equipo=equipo,
                 banco_tangram_original=actividad.banco_tangrams,
                 nombre_equipo=equipo.nombre,
                 nombre_actividad=actividad.nombre,
-                nombre_salon=nombre_salon
+                nombre_salon=nombre_salon,
+                horas=horas,
+                minutos=minutos,
+                segundos=segundos
             )
 
             # Procesar y guardar imágenes

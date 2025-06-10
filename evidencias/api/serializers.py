@@ -28,6 +28,7 @@ class EstadisticaEvidenciaSerializer(serializers.ModelSerializer):
             'piezas_movidas'
         ]
 
+
 class EvidenciaTangramSerializer(serializers.ModelSerializer):
     imagenes = ImagenEvidenciaSerializer(many=True, read_only=True)
     estadisticas = EstadisticaEvidenciaSerializer(many=True, read_only=True)
@@ -44,6 +45,9 @@ class EvidenciaTangramSerializer(serializers.ModelSerializer):
             'nombre_actividad',
             'nombre_salon',
             'banco_tangram_original',
+            'horas',
+            'minutos',
+            'segundos',
             'imagenes',
             'estadisticas'
         ]

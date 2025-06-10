@@ -17,6 +17,7 @@ estadisticas_temporales = {}
 
 
 class JuegoConsumer(AsyncWebsocketConsumer):
+    # En tu JuegoConsumer.py
     async def connect(self):
         self.codigo_sesion = self.scope['url_route']['kwargs']['codigo']
         self.sala_grupo = f"juego_{self.codigo_sesion}"
@@ -27,6 +28,20 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.sala_grupo, self.channel_name)
         await self.accept()
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+        if "hora_inicio" in estado:
+            # Si ya inició, reenviar tiempo
+            await self.enviar_tiempo_actividad()
+
+        # 👇 AÑADE esto:
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+        if "hora_inicio" in estado and "tiempo_total" in estado:
+            tiempo_transcurrido = int(timezone.now().timestamp() - estado["hora_inicio"])
+            await self.send(text_data=json.dumps({
+                "tipo": "tiempo_actividad",
+                "tiempo_transcurrido": tiempo_transcurrido,
+                "tiempo_total": estado["tiempo_total"]
+            }))
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.sala_grupo, self.channel_name)
@@ -34,7 +49,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         tipo = data.get('tipo')
-
+ 
         if tipo == "chat":
             await self.enviar_mensaje_chat(data)
         elif tipo == "actualizar_tangram":
@@ -59,7 +74,24 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             await self.enviar_historial_chat()
         elif tipo == "registrar_evidencia":
             await self.registrar_evidencia_id(data)
+        elif tipo == "solicitar_tiempo":
+            await self.enviar_tiempo_actual()
+        elif tipo == "cronometro_terminado":
+            await self.cronometro_terminado(data)
 
+    async def enviar_tiempo_actual(self):
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+        if "hora_inicio" in estado:
+            ahora = timezone.now().timestamp()
+            tiempo_transcurrido = int(ahora - estado["hora_inicio"])
+            tiempo_total = estado.get("tiempo_total", 0)
+            segundos_restantes = max(tiempo_total - tiempo_transcurrido, 0)
+
+            await self.send(text_data=json.dumps({
+                "tipo": "tiempo_actividad",
+                "tiempo_total": tiempo_total,
+                "tiempo_transcurrido": tiempo_transcurrido
+            })) 
 
     @database_sync_to_async
     def guardar_estadisticas(self, participacion, evidencia_id):
@@ -312,6 +344,25 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             return Estudiante.objects.filter(equipo=sesion.equipo).count()
         except SesionJuego.DoesNotExist:
             return 0
+    @database_sync_to_async
+    def obtener_tiempo_total(self, codigo_sesion):
+        from actividadesTangram.models import Actividad
+        try:
+            sesion = SesionJuego.objects.get(codigo=codigo_sesion)
+            equipo = sesion.equipo
+            salon = equipo.salon
+            actividad = Actividad.objects.filter(salon=salon, activo=True).first()
+
+            if not actividad:
+                print(f"⚠️ No se encontró actividad activa para el salón {salon}")
+                return 600  # fallback
+
+            tiempo_total = (actividad.horas * 3600) + (actividad.minutos * 60) + actividad.segundos
+            print(f"⏱️ Tiempo total encontrado para la actividad '{actividad.nombre}': {tiempo_total} segundos")
+            return tiempo_total
+        except Exception as e:
+            print(f"❌ Error al obtener tiempo_total: {e}")
+            return 600
 
     async def usuario_listo(self, data):
         nickname = data.get("usuario")
@@ -444,6 +495,14 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
         # 🔥 Si todos ya dieron click, empieza el juego
         if len(estado["usuarios_listos_inicio"]) >= estado["total_usuarios"]:
+            from django.utils.timezone import now
+            # Solo si no se ha guardado antes
+            if "hora_inicio" not in estado:
+                estado["hora_inicio"] = now().timestamp()
+
+                # 🔥 AÑADE ESTO: Define el tiempo total de la actividad
+                estado["tiempo_total"] = await self.obtener_tiempo_total(self.codigo_sesion)
+
             await self.channel_layer.group_send(
                 self.sala_grupo,
                 {
@@ -451,6 +510,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+    
     async def enviar_listos_inicio(self, event):
         await self.send(text_data=json.dumps({
             "tipo": "usuarios_listos_inicio",
@@ -467,6 +527,22 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "tipo": "todos_finalizar"
         }))
+
+    async def enviar_tiempo_actividad(self, event=None):
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+
+        if "hora_inicio" not in estado:
+            return
+
+        tiempo_transcurrido = int(timezone.now().timestamp() - estado["hora_inicio"])
+        tiempo_total = estado.get("tiempo_total", 3600)  # 👈 aquí debería estar el tiempo definido por el profe
+
+        await self.send(text_data=json.dumps({
+            "tipo": "tiempo_actividad",
+            "tiempo_transcurrido": tiempo_transcurrido,
+            "tiempo_total": tiempo_total  # 👈 ahora sí lo mandas
+        }))
+
 
     async def cambiar_imagen(self, event):
         await self.send(text_data=json.dumps({
@@ -607,4 +683,32 @@ class JuegoConsumer(AsyncWebsocketConsumer):
     async def forzar_salida(self, event):
         await self.send(text_data=json.dumps({
             "tipo": "salir_al_login"
+        }))
+        
+    async def cronometro_terminado(self, data):
+        estado = estado_sesiones.get(self.codigo_sesion, {})
+
+        if estado.get("tiempo_finalizado"):
+            print("⛔ Ya se había enviado finalizar_por_tiempo.")
+            return
+
+        estado["tiempo_finalizado"] = True
+
+        # ❗ Notificar a todos que deben finalizar manualmente
+        await self.channel_layer.group_send(
+            self.sala_grupo,
+            {
+                "type": "tiempo_agotado"
+            }
+        )
+
+    async def tiempo_agotado(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "tiempo_agotado"
+        }))
+        
+    async def finalizar_por_tiempo(self, event):
+        await self.send(text_data=json.dumps({
+            "tipo": "finalizar_por_tiempo",
+            "nickname": event["nickname"]
         }))

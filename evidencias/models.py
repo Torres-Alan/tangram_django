@@ -16,6 +16,11 @@ class EvidenciaTangram(models.Model):
     nombre_actividad = models.CharField(max_length=100, blank=True)
     nombre_salon = models.CharField(max_length=100, blank=True)
 
+
+    horas = models.PositiveIntegerField()
+    minutos = models.PositiveIntegerField()
+    segundos = models.PositiveIntegerField()
+
     def save(self, *args, **kwargs):
         fecha_hora = localtime().strftime('%Y-%m-%d_%H%M')
 
@@ -38,9 +43,6 @@ class EvidenciaTangram(models.Model):
             self.nombre = f"Evidencia_SinDatos_{fecha_hora}"
 
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.nombre
 
 
 class ImagenEvidencia(models.Model):

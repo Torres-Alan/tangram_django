@@ -76,7 +76,6 @@ class EvidenciasDelMaestroView(APIView):
 
         return Response(evidencias_data)
 
-
 class InformacionCompletaPorEvidencia(APIView):
     def get(self, request, id_evidencia):
         try:
@@ -90,7 +89,6 @@ class InformacionCompletaPorEvidencia(APIView):
             {**img, "indice": img.get("orden", 0)} for img in imagenes_serializer.data
         ]
 
-        # ✅ Usar el arreglo estático de la evidencia, no el de la actividad
         imagenes_originales = evidencia.banco_tangram_original or []
 
         equipo = evidencia.equipo
@@ -124,9 +122,15 @@ class InformacionCompletaPorEvidencia(APIView):
                 "mensajes_enviados": total_mensajes,
                 "respuestas_enviadas": total_respuestas,
                 "piezas_movidas": total_movimientos
+            },
+            "duracion_usada": {
+                "horas": evidencia.horas,
+                "minutos": evidencia.minutos,
+                "segundos": evidencia.segundos
             }
         }, status=status.HTTP_200_OK)
-        
+
+
 class EvidenciaEliminarVista(APIView):
     def delete(self, request, evidencia_id):
         try:
