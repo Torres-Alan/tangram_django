@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils.timezone import localtime
 from evidencias.models import EvidenciaTangram, ImagenEvidencia, EstadisticaEvidencia
 
 
@@ -32,13 +33,14 @@ class EstadisticaEvidenciaSerializer(serializers.ModelSerializer):
 class EvidenciaTangramSerializer(serializers.ModelSerializer):
     imagenes = ImagenEvidenciaSerializer(many=True, read_only=True)
     estadisticas = EstadisticaEvidenciaSerializer(many=True, read_only=True)
+    fecha_local = serializers.SerializerMethodField()
 
     class Meta:
         model = EvidenciaTangram
         fields = [
             'id',
             'nombre',
-            'fecha_creacion',
+            'fecha_local',
             'actividad',
             'equipo',
             'nombre_equipo',
@@ -48,6 +50,12 @@ class EvidenciaTangramSerializer(serializers.ModelSerializer):
             'horas',
             'minutos',
             'segundos',
+            'tiempo_asignado_horas',
+            'tiempo_asignado_minutos',
+            'tiempo_asignado_segundos',
             'imagenes',
             'estadisticas'
         ]
+
+    def get_fecha_local(self, obj):
+        return localtime(obj.fecha_creacion).strftime('%d/%m/%Y, %H:%M')

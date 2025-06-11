@@ -39,13 +39,19 @@ class EvidenciaService:
                 salon = actividad.salon
                 nombre_salon = f"{salon.grado}º{salon.grupo} ({salon.ciclo_escolar_inicio}–{salon.ciclo_escolar_fin})"
 
-            # ✅ Obtener y convertir el tiempo si está presente
-            tiempo_segundos = datos_evidencia.get('tiempo_segundos', 0)
-            horas = tiempo_segundos // 3600
-            minutos = (tiempo_segundos % 3600) // 60
-            segundos = tiempo_segundos % 60
+            # ✅ Calcular tiempo usado
+            tiempo_usado_segundos = datos_evidencia.get('tiempo_segundos', 0)
+            horas = tiempo_usado_segundos // 3600
+            minutos = (tiempo_usado_segundos % 3600) // 60
+            segundos = tiempo_usado_segundos % 60
 
-            # ✅ Crear la evidencia con tiempo y campos adicionales
+            # ✅ Calcular tiempo asignado
+            tiempo_asignado_segundos = datos_evidencia.get('tiempo_asignado', 0)
+            horas_asignado = tiempo_asignado_segundos // 3600
+            minutos_asignado = (tiempo_asignado_segundos % 3600) // 60
+            segundos_asignado = tiempo_asignado_segundos % 60
+
+            # ✅ Crear evidencia con ambos tiempos
             evidencia = EvidenciaTangram.objects.create(
                 actividad=actividad,
                 equipo=equipo,
@@ -55,10 +61,13 @@ class EvidenciaService:
                 nombre_salon=nombre_salon,
                 horas=horas,
                 minutos=minutos,
-                segundos=segundos
+                segundos=segundos,
+                tiempo_asignado_horas=horas_asignado,
+                tiempo_asignado_minutos=minutos_asignado,
+                tiempo_asignado_segundos=segundos_asignado
             )
 
-            # Procesar y guardar imágenes
+            # Guardar imágenes (base64)
             imagenes = datos_evidencia['imagenes']  # Lista de strings base64
 
             for index, img_data in enumerate(imagenes):
@@ -73,7 +82,7 @@ class EvidenciaService:
                     orden=index
                 )
 
-            # Procesar estadísticas si se incluyen
+            # Guardar estadísticas (si vienen)
             estadisticas = datos_evidencia.get('estadisticas', [])
             for estadistica in estadisticas:
                 try:

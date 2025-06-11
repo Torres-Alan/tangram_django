@@ -10,6 +10,7 @@ from evidencias.models import EstadisticaEvidencia, EvidenciaTangram, ImagenEvid
 from evidencias.services import EvidenciaService
 from evidencias.api.serializers import EstadisticaEvidenciaSerializer, EvidenciaTangramSerializer, ImagenEvidenciaSerializer
 from rest_framework.permissions import IsAuthenticated
+from django.utils.timezone import localtime
 
 class EvidenciaCrearVista(APIView):
     permission_classes = [AllowAny]
@@ -71,7 +72,7 @@ class EvidenciasDelMaestroView(APIView):
                     "actividad": evidencia.nombre_actividad if evidencia.nombre_actividad else "Sin actividad",
                     "salon": evidencia.nombre_salon if evidencia.nombre_salon else "Sin salón",
                     "equipo": evidencia.nombre_equipo if evidencia.nombre_equipo else "Sin equipo",
-                    "fecha": evidencia.fecha_creacion.strftime("%Y-%m-%d %H:%M"),
+                    "fecha": localtime(evidencia.fecha_creacion).strftime("%Y-%m-%d %H:%M"),
                 })
 
         return Response(evidencias_data)
@@ -83,29 +84,21 @@ class InformacionCompletaPorEvidencia(APIView):
         except EvidenciaTangram.DoesNotExist:
             return Response({"detail": "La evidencia no existe."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Imágenes de evidencia (con índice)
         imagenes = ImagenEvidencia.objects.filter(evidencia=evidencia).order_by('orden')
         imagenes_serializer = ImagenEvidenciaSerializer(imagenes, many=True, context={'request': request})
         imagenes_con_indice = [
             {**img, "indice": img.get("orden", 0)} for img in imagenes_serializer.data
         ]
 
+        # Imágenes originales de la actividad
         imagenes_originales = evidencia.banco_tangram_original or []
 
-        equipo = evidencia.equipo
-        estudiantes = Estudiante.objects.filter(equipo=equipo).values('id', 'nombre', 'apellidos', 'nickname')
-
-        equipo_data = {
-            "id": equipo.id if equipo else None,
-            "nombre": equipo.nombre if equipo else evidencia.nombre_equipo,
-            "salon_id": equipo.salon_id if equipo else None,
-            "created_by_id": equipo.created_by_id if equipo else None,
-            "created_at": equipo.created_at if equipo else None,
-            "estudiantes": list(estudiantes)
-        }
-
+        # Estadísticas asociadas
         estadisticas = EstadisticaEvidencia.objects.filter(evidencia=evidencia)
         estadisticas_serializer = EstadisticaEvidenciaSerializer(estadisticas, many=True)
 
+        # Totales
         total_mensajes = sum(e.mensajes_enviados for e in estadisticas)
         total_respuestas = sum(e.respuestas_enviadas for e in estadisticas)
         total_movimientos = sum(e.piezas_movidas for e in estadisticas)
@@ -113,11 +106,20 @@ class InformacionCompletaPorEvidencia(APIView):
         return Response({
             "evidencia_id": evidencia.id,
             "nombre_evidencia": evidencia.nombre,
+            "nombre_actividad": evidencia.nombre_actividad,
+            "nombre_salon": evidencia.nombre_salon,
+            "nombre_equipo": evidencia.nombre_equipo,
             "fecha_creacion": evidencia.fecha_creacion,
             "imagenes_evidencia": imagenes_con_indice,
             "imagenes_originales": imagenes_originales,
-            "equipo": equipo_data,
             "estadisticas": estadisticas_serializer.data,
+            "estudiantes_registrados": [
+                {
+                    "nombre_estudiante": est.nombre_estudiante,
+                    "nickname_estudiante": est.nickname_estudiante
+                }
+                for est in estadisticas
+            ],
             "totales": {
                 "mensajes_enviados": total_mensajes,
                 "respuestas_enviadas": total_respuestas,
@@ -127,6 +129,11 @@ class InformacionCompletaPorEvidencia(APIView):
                 "horas": evidencia.horas,
                 "minutos": evidencia.minutos,
                 "segundos": evidencia.segundos
+            },
+            "duracion_asignada": {
+                "horas": evidencia.tiempo_asignado_horas,
+                "minutos": evidencia.tiempo_asignado_minutos,
+                "segundos": evidencia.tiempo_asignado_segundos
             }
         }, status=status.HTTP_200_OK)
 

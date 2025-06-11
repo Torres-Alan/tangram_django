@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.timezone import now, localtime
+from django.utils.timezone import localtime
 from equipos.models import Equipos
 from actividadesTangram.models import Actividad
 from estudiantes.models import Estudiante
@@ -16,10 +16,15 @@ class EvidenciaTangram(models.Model):
     nombre_actividad = models.CharField(max_length=100, blank=True)
     nombre_salon = models.CharField(max_length=100, blank=True)
 
-
+    # ⏱️ Tiempo utilizado
     horas = models.PositiveIntegerField()
     minutos = models.PositiveIntegerField()
     segundos = models.PositiveIntegerField()
+
+    # 🕒 Tiempo asignado (nuevo)
+    tiempo_asignado_horas = models.PositiveIntegerField(default=0)
+    tiempo_asignado_minutos = models.PositiveIntegerField(default=0)
+    tiempo_asignado_segundos = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         fecha_hora = localtime().strftime('%Y-%m-%d_%H%M')
@@ -38,7 +43,6 @@ class EvidenciaTangram(models.Model):
 
             if not self.nombre_salon and self.actividad.salon:
                 self.nombre_salon = f"{self.actividad.salon.grado} {self.actividad.salon.grupo}"
-
         else:
             self.nombre = f"Evidencia_SinDatos_{fecha_hora}"
 

@@ -11,9 +11,12 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
         'nombre_equipo',
         'nombre_actividad',
         'nombre_salon',
-        'horas',         # ⏱️ Agregado
-        'minutos',       # ⏱️ Agregado
-        'segundos',      # ⏱️ Agregado
+        'horas',
+        'minutos',
+        'segundos',
+        'tiempo_asignado_horas',     # ⏱️ Nuevo
+        'tiempo_asignado_minutos',   # ⏱️ Nuevo
+        'tiempo_asignado_segundos',  # ⏱️ Nuevo
         'fecha_creacion',
     )
     search_fields = (
@@ -38,9 +41,12 @@ class EvidenciaTangramAdmin(admin.ModelAdmin):
         'nombre_equipo',
         'nombre_actividad',
         'nombre_salon',
-        'horas',        # ⏱️ Agregado
-        'minutos',      # ⏱️ Agregado
-        'segundos',     # ⏱️ Agregado
+        'horas',
+        'minutos',
+        'segundos',
+        'tiempo_asignado_horas',     # ⏱️ Nuevo
+        'tiempo_asignado_minutos',   # ⏱️ Nuevo
+        'tiempo_asignado_segundos',  # ⏱️ Nuevo
     )
 
 
