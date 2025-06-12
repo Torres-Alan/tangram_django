@@ -590,6 +590,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 "indice": estado.get("indice", 0),
                 "usuarios_listos": list(estado.get("usuarios_listos", set())),
                 "usuarios_listos_finalizar": list(estado.get("usuarios_listos_finalizar", set())),
+                "tiempo_finalizado": estado.get("tiempo_finalizado", False)
             }
         }))
 
