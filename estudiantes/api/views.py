@@ -1,4 +1,5 @@
 # estudiantes/api/views.py
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,18 +16,29 @@ from rest_framework.permissions import AllowAny
 class EstudianteCrearVista(APIView):
     def post(self, request):
         try:
-            # Usar el servicio para crear el estudiante con el equipo y salón
+            nickname = request.data.get("nickname")
+            if not nickname:
+                return Response({"error": "El campo 'nickname' es obligatorio."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar si el nickname ya existe
+            if Estudiante.objects.filter(nickname=nickname).exists():
+                return Response({"error": "El nickname ya está en uso."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Crear el estudiante
             estudiante = EstudianteService.crear_estudiante(request.data)
 
             # Serializar la respuesta
             serializer = EstudianteSerializer(estudiante)
 
-            return Response({"Exito": "Estudiante creado con éxito.", "estudiante": serializer.data}, status=status.HTTP_201_CREATED)
+            return Response({
+                "Exito": "Estudiante creado con éxito.",
+                "estudiante": serializer.data
+            }, status=status.HTTP_201_CREATED)
 
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"error": f"Ocurrió un error inesperado.{e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Ocurrió un error inesperado: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class EstudianteAsignarEquipo(APIView):
@@ -140,6 +152,7 @@ class EstudianteEliminarVista(APIView):
 
 class ObtenerIntegrantesEquipo(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         try:
             # Obtener el código del equipo enviado en el cuerpo de la solicitud
@@ -154,12 +167,70 @@ class ObtenerIntegrantesEquipo(APIView):
             except SesionJuego.DoesNotExist:
                 return Response({"error": "Código de equipo inválido o sesión no activa."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Obtener los estudiantes que pertenecen al equipo de esa sesión
-            estudiantes = Estudiante.objects.filter(equipo=sesion.equipo)
+            # Obtener el id del equipo asociado con la sesión
+            equipo = sesion.equipo  # El equipo está relacionado a la sesión de juego por FK
 
-            # Retornar los estudiantes
-            estudiantes_data = [{"id": estudiante.id, "nickname": estudiante.nickname} for estudiante in estudiantes]
-            return Response(estudiantes_data, status=status.HTTP_200_OK)
+            # Obtener los estudiantes que pertenecen al equipo de esa sesión
+            estudiantes = Estudiante.objects.filter(equipo=equipo)
+
+            # Crear los datos de respuesta, incluyendo nombre, apellidos y nickname de los estudiantes
+            estudiantes_data = [
+                {
+                    "id": estudiante.id,
+                    "nombre": estudiante.nombre,
+                    "apellidos": estudiante.apellidos,
+                    "nickname": estudiante.nickname,
+                }
+                for estudiante in estudiantes
+            ]
+
+            # Datos del equipo (corrigiendo los campos disponibles)
+            equipo_data = {
+                "id_equipo": equipo.id,
+                "nombre_equipo": equipo.nombre,  # Aquí utilizamos el campo "nombre" del equipo
+            }
+
+            # Retornar la información del equipo y sus estudiantes
+            return Response({
+                "equipo": equipo_data,
+                "estudiantes": estudiantes_data,
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RemoverEstudianteDeEquipoView(APIView):
+    def post(self, request, estudiante_id):
+        estudiante = get_object_or_404(Estudiante, id=estudiante_id)
+
+        # Eliminar la relación con el equipo
+        estudiante.equipo = None
+        estudiante.save()
+
+        return Response({"mensaje": f"Estudiante {estudiante.nombre} removido del equipo."}, status=status.HTTP_200_OK)
+    
+class EditarEstudianteView(APIView):
+    def patch(self, request, estudiante_id):
+        estudiante = get_object_or_404(Estudiante, id=estudiante_id)
+
+        nombre = request.data.get("nombre")
+        apellidos = request.data.get("apellidos")
+        nickname = request.data.get("nickname")
+
+        if nombre is not None:
+            estudiante.nombre = nombre
+
+        if apellidos is not None:
+            estudiante.apellidos = apellidos
+
+        if nickname is not None:
+            # Verificamos si el nickname ya existe en otro estudiante
+            if Estudiante.objects.exclude(id=estudiante.id).filter(nickname=nickname).exists():
+                return Response({"error": "El nickname ya está en uso."}, status=status.HTTP_400_BAD_REQUEST)
+            estudiante.nickname = nickname
+
+        estudiante.save()
+
+        return Response({
+            "mensaje": "Datos del estudiante actualizados correctamente."
+        }, status=status.HTTP_200_OK)

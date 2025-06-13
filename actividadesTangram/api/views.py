@@ -7,6 +7,9 @@ from actividadesTangram.api.serializers import ActividadSerializer
 from actividadesTangram.models import Actividad
 from actividadesTangram.services import ActividadService
 from salones.models import Salon
+from sesion_juego.models import SesionJuego  
+from rest_framework.permissions import AllowAny
+from django.shortcuts import get_object_or_404
 
 class ActividadCrearVista(APIView):
     def post(self, request):
@@ -55,16 +58,25 @@ class ActividadListarVista(APIView):
                     "horas": actividad.horas,
                     "minutos": actividad.minutos,
                     "segundos": actividad.segundos,
-                    "salon": actividad.salon.id if actividad.salon else None,  # Si el salón es nulo, se pone como None
+                    "salon": {
+                        "id": actividad.salon.id if actividad.salon else None,  # Si el salón es nulo, se pone como None
+                        "nombre": actividad.salon.nombre if actividad.salon else None,  # Nombre del salón
+                        "grado": actividad.salon.grado if actividad.salon else None,  # Grado del salón
+                        "grupo": actividad.salon.grupo if actividad.salon else None,  # Grupo del salón
+                        "ciclo_escolar_inicio": actividad.salon.ciclo_escolar_inicio if actividad.salon else None,  # Ciclo escolar inicio
+                        "ciclo_escolar_fin": actividad.salon.ciclo_escolar_fin if actividad.salon else None,  # Ciclo escolar fin
+                    },
                     "banco_tangrams": actividad.banco_tangrams,
                     "tiempo_total": actividad.tiempo_total(),
                     "maestro": actividad.maestroId.username,  # O cualquier otro campo relevante
+                    "activo": actividad.activo,
                 })
 
             return Response(actividad_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error al obtener las actividades: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ActividadEliminarVista(APIView):
     def delete(self, request, actividad_id):
@@ -115,3 +127,99 @@ class AsignarSalonActividad(APIView):
 
         except Exception as e:
             return Response({"error": f"Ocurrió un error al asignar el salón: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ActivarActividad(APIView):
+    def patch(self, request, actividad_id):
+        try:
+            # Obtener la actividad por ID
+            try:
+                actividad = Actividad.objects.get(id=actividad_id)
+            except Actividad.DoesNotExist:
+                return Response({"error": "La actividad especificada no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Obtener el valor de 'activo' desde la solicitud
+            activo = request.data.get('activo')
+
+            if activo is None:
+                return Response({"error": "Se debe proporcionar el estado 'activo'."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar que solo se pueda activar si tiene salón asignado
+            if activo and not actividad.salon:
+                return Response(
+                    {"error": "No puedes activar una actividad sin un salón asignado."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Verificar si ya hay otra actividad activa en el mismo salón
+            if activo:
+                actividad_activa_existente = Actividad.objects.filter(
+                    salon=actividad.salon,
+                    activo=True
+                ).exclude(id=actividad.id).exists()
+
+                if actividad_activa_existente:
+                    return Response(
+                        {"error": "Ya hay una actividad activa en este salón. Solo puedes tener una activa a la vez."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Actualizar el estado de la actividad
+            actividad.activo = activo
+            actividad.save()
+
+            return Response(
+                {
+                    "success": f"El estado de la actividad '{actividad.nombre}' ha sido actualizado.",
+                    "activo": actividad.activo
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": f"Ocurrió un error al actualizar el estado de la actividad: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class ActividadActivaPorEquipo(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, codigo_equipo):
+        try:
+            sesion = SesionJuego.objects.get(codigo=codigo_equipo)
+            equipo = sesion.equipo
+            salon = equipo.salon
+            actividad = Actividad.objects.filter(salon=salon, activo=True).first()
+
+            if actividad:
+                serializer = ActividadSerializer(actividad)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"mensaje": "No hay actividades activas por el momento."}, status=status.HTTP_200_OK)
+
+        except SesionJuego.DoesNotExist:
+            return Response({"error": "Código de sesión no válido."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Ocurrió un error al obtener la actividad activa: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ActividadEditarVista(APIView):
+    def patch(self, request, actividad_id):
+        try:
+            actividad = get_object_or_404(Actividad, id=actividad_id)
+
+            if request.user != actividad.maestroId:
+                return Response({"error": "No tienes permisos para editar esta actividad."}, status=status.HTTP_403_FORBIDDEN)
+
+            campos_permitidos = ['nombre', 'horas', 'minutos', 'segundos', 'banco_tangrams']
+            data = request.data
+
+            for campo in campos_permitidos:
+                if campo in data:
+                    setattr(actividad, campo, data[campo])
+
+            actividad.save()
+            serializer = ActividadSerializer(actividad)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Error al editar la actividad: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

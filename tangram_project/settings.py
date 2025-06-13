@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,8 +27,11 @@ SECRET_KEY = 'django-insecure-jk#-v47@^86ww&p3aw97u#x%cy3h3b4x#nq!$ko4fgi26)f#hp
 DEBUG = True
 
 #HOST DE NGROK:
-ALLOWED_HOSTS = ['4367-2806-10b7-3-7dbd-48c6-c626-58a6-f949.ngrok-free.app', 'localhost','127.0.0.1',]
+ALLOWED_HOSTS = ['monster-suitable-kangaroo.ngrok-free.app', 'localhost','127.0.0.1',]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://monster-suitable-kangaroo.ngrok-free.app'
+]
 
 # Application definition
 
@@ -49,7 +53,11 @@ INSTALLED_APPS = [
     'corsheaders',
     'sesion_juego',
     'actividadesTangram',
+    'evidencias', 
 ]
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media' #PARA MANDAR URL'S DE MIS IMAGENES?
 
 #jwt auth
 REST_FRAMEWORK = {
@@ -59,6 +67,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 #Webscokets con Django Channels:

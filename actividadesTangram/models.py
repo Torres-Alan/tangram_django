@@ -1,17 +1,17 @@
 from django.db import models
-from maestros.models import Maestro  # Asegúrate de importar el modelo Maestro
+from maestros.models import Maestro
 
 class Actividad(models.Model):
     nombre = models.CharField(max_length=255)
-    horas = models.PositiveIntegerField()  # Campo para horas
-    minutos = models.PositiveIntegerField()  # Campo para minutos
-    segundos = models.PositiveIntegerField()  # Campo para segundos
+    horas = models.PositiveIntegerField()
+    minutos = models.PositiveIntegerField()
+    segundos = models.PositiveIntegerField()
     salon = models.ForeignKey('salones.Salon', on_delete=models.SET_NULL, null=True, blank=True)
-    banco_tangrams = models.JSONField()
-    maestroId = models.ForeignKey(Maestro, on_delete=models.CASCADE)  # Relación con el maestro
+    banco_tangrams = models.JSONField()  # Aquí se almacenan las URLs de imágenes
+    maestroId = models.ForeignKey(Maestro, on_delete=models.CASCADE)
+    activo = models.BooleanField(default=False)
 
     def tiempo_total(self):
-        # Esto devuelve el tiempo total en minutos, tomando en cuenta horas, minutos y segundos
         return self.horas * 60 + self.minutos + self.segundos / 60
 
     def __str__(self):

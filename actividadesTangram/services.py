@@ -55,7 +55,8 @@ class ActividadService:
                 segundos=segundos,
                 salon=salon,
                 banco_tangrams=banco_tangrams,
-                maestroId=maestro  # Asociar la actividad con el maestro
+                maestroId=maestro,
+                activo=datos_actividad.get('activo', True)  # Campo 'activo' añadido
             )
 
             return actividad
